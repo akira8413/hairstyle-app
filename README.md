@@ -9,7 +9,30 @@ AI-powered hairstyle simulator app for iOS and Android.
 - Adjustable hairstyle parameters (length, color, style)
 - Preset hairstyles for quick simulation
 
-## Setup
+## Project Structure
+
+```
+hairstyle-app/
+├── backend/          # Flask API server
+│   └── server.py
+├── frontend/         # Web frontend (legacy)
+│   ├── hairstyle.html
+│   ├── hairstyle.js
+│   └── style.css
+├── mobile/           # Flutter mobile app
+│   ├── lib/
+│   │   ├── main.dart
+│   │   ├── models/
+│   │   ├── screens/
+│   │   ├── services/
+│   │   ├── theme/
+│   │   └── widgets/
+│   └── pubspec.yaml
+├── Dockerfile
+└── requirements.txt
+```
+
+## Backend Setup
 
 ### Prerequisites
 
@@ -41,17 +64,48 @@ python server.py
 | GOOGLE_APPLICATION_CREDENTIALS_JSON | Service account JSON |
 | PORT | Server port (default: 8080) |
 
+## Mobile App (Flutter)
+
+### Prerequisites
+
+- Flutter SDK 3.0+
+- Dart SDK 3.0+
+- Xcode (for iOS)
+- Android Studio (for Android)
+
+### Installation
+
+```bash
+cd mobile
+
+# Get dependencies
+flutter pub get
+
+# Run on iOS simulator
+flutter run -d ios
+
+# Run on Android emulator
+flutter run -d android
+
+# Build for release
+flutter build ios
+flutter build apk
+```
+
+### Design System
+
+The app follows SHIG (Sociomedia Human Interface Guidelines) principles:
+- Clean, minimal design
+- High contrast (white background, dark text)
+- Clear visual hierarchy
+- Reduced cognitive load
+
 ## API Endpoints
 
 - `POST /api/v1/vision/hairstyle` - Analyze face and suggest hairstyles
 - `POST /api/v1/vision/hairstyle/generate` - Generate hairstyle preview image
 - `POST /api/v1/vision/hairstyle/adjust` - Adjust generated hairstyle
 - `GET /health` - Health check
-
-## Mobile App (Coming Soon)
-
-- iOS (Swift/SwiftUI)
-- Android (Kotlin/Jetpack Compose)
 
 ## License
 
