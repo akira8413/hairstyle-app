@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>髪型シミュレーター</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 700px) {
+            .two-column {
+                grid-template-columns: 1fr;
+            }
+        }
+        .upload-box {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .upload-box h3 {
+            margin-bottom: 12px;
+            color: #667eea;
+        }
+        .preview-image {
+            width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #f5f5f5;
+        }
+        .result-container {
+            text-align: center;
+            padding: 20px;
+        }
+        .result-image {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+        .comparison-view {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .comparison-arrow {
+            font-size: 2rem;
+            color: #667eea;
+        }
+        .comparison-item {
+            text-align: center;
+        }
+        .comparison-item img {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+        }
+        .comparison-item h4 {
+            margin-top: 8px;
+            color: #666;
+        }
+        .generate-btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 1.2rem;
+            margin-top: 20px;
+        }
+        .drop-zone-small {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .drop-zone-small:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        .drop-zone-small.has-image {
+            border-style: solid;
+            border-color: #667eea;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* ===== 新しいプリセット選択UI ===== */
+        .gender-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .gender-tab {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .gender-tab:hover {
+            border-color: #667eea;
+        }
+        .gender-tab.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .preset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .preset-btn {
+            padding: 14px 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+        }
+        .preset-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-2px);
+        }
+        .preset-btn.selected {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .preset-btn .preset-icon {
+            font-size: 1.5rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .preset-btn .preset-name {
+            font-weight: bold;
+        }
+        .preset-btn .preset-desc {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .reference-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #eee;
+        }
+        .reference-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .reference-toggle:hover {
+            color: #667eea;
+        }
+        .reference-content {
+            margin-top: 12px;
+        }
+        .reference-note {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* ===== 生成後調整パネル ===== */
+        .adjust-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .adjust-panel h3 {
+            margin-bottom: 16px;
+            color: #667eea;
+            text-align: center;
+        }
+        .adjust-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .adjust-item {
+            flex: 1;
+            min-width: 140px;
+        }
+        .adjust-item label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #333;
+            font-size: 0.9rem;
+        }
+        .adjust-item select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+            cursor: pointer;
+        }
+        .adjust-item select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .regenerate-btn {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.1rem;
+            margin-top: 8px;
+        }
+
+        /* 選択状態の表示 */
+        .selection-summary {
+            background: #f8f9ff;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .selection-summary .selected-style {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💇 髪型シミュレーター</h1>
+            <p>顔写真と髪型スタイルを選んで、新しい自分をプレビュー</p>
+            <div class="header-buttons">
+                <button class="btn btn-header" onclick="window.location.href='index.html'">
+                    🏠 ホーム
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <!-- 入力セクション -->
+            <div id="inputSection">
+                <div class="two-column">
+                    <!-- 顔写真 -->
+                    <div class="upload-box">
+                        <h3>📸 あなたの顔写真</h3>
+                        <div id="faceDropZone" class="drop-zone-small">
+                            <span style="font-size: 2rem;">📤</span>
+                            <p>タップして選択</p>
+                        </div>
+                        <img id="facePreview" class="preview-image hidden" alt="顔写真">
+                        <input type="file" id="faceInput" accept="image/*" style="display: none;">
+                        <div style="display: flex; gap: 8px; margin-top: 8px;">
+                            <button id="faceCameraBtn" class="btn btn-secondary" style="flex: 1;">
+                                📷 撮影
+                            </button>
+                            <button id="faceFileBtn" class="btn btn-secondary" style="flex: 1;">
+                                📁 選択
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 髪型選択 -->
+                    <div class="upload-box">
+                        <h3>✨ なりたい髪型を選ぶ</h3>
+
+                        <!-- メンズ/レディース切り替え -->
+                        <div class="gender-tabs">
+                            <button class="gender-tab active" data-gender="mens">👨 メンズ</button>
+                            <button class="gender-tab" data-gender="ladies">👩 レディース</button>
+                        </div>
+
+                        <!-- プリセットボタン -->
+                        <div id="presetContainer" class="preset-grid">
+                            <!-- JSで動的に生成 -->
+                        </div>
+
+                        <!-- 選択状態表示 -->
+                        <div id="selectionSummary" class="selection-summary hidden">
+                            <span class="selected-style" id="selectedStyleName">-</span>
+                        </div>
+
+                        <!-- 参考画像アップロード（オプション） -->
+                        <div class="reference-section">
+                            <div class="reference-toggle" id="referenceToggle">
+                                <span>📷</span>
+                                <span>参考画像をアップロード（オプション）</span>
+                                <span id="toggleArrow">▼</span>
+                            </div>
+                            <div id="referenceContent" class="reference-content hidden">
+                                <div id="hairstyleDropZone" class="drop-zone-small" style="min-height: 100px; padding: 12px;">
+                                    <span style="font-size: 1.5rem;">📤</span>
+                                    <p style="font-size: 0.85rem;">参考にしたい髪型画像</p>
+                                </div>
+                                <img id="hairstylePreview" class="preview-image hidden" alt="参考画像" style="max-height: 150px;">
+                                <input type="file" id="hairstyleInput" accept="image/*" style="display: none;">
+                                <p class="reference-note">※ 完全なコピーではなく、雰囲気を参考にします</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="generateBtn" class="btn btn-success generate-btn" disabled>
+                    🪄 髪型を合成する
+                </button>
+            </div>
+
+            <!-- ローディング -->
+            <div id="loadingSection" class="loading-overlay hidden">
+                <div class="spinner"></div>
+                <p style="margin-top: 20px; font-size: 1.2rem;">AIが髪型を合成中...</p>
+                <p style="color: #ccc;">5〜15秒ほどお待ちください</p>
+            </div>
+
+            <!-- 結果セクション -->
+            <div id="resultSection" class="hidden">
+                <h2>✨ 合成結果</h2>
+
+                <!-- Before/After比較 -->
+                <div class="comparison-view">
+                    <div class="comparison-item">
+                        <img id="resultFace" alt="元の写真">
+                        <h4>Before</h4>
+                    </div>
+                    <div class="comparison-arrow">→</div>
+                    <div class="comparison-item">
+                        <img id="resultGenerated" alt="合成後">
+                        <h4>After</h4>
+                    </div>
+                </div>
+
+                <!-- 大きな結果画像 -->
+                <div class="result-container">
+                    <img id="resultImageLarge" class="result-image" alt="合成結果">
+                </div>
+
+                <!-- 調整パネル -->
+                <div class="adjust-panel">
+                    <h3>🎨 スタイル調整</h3>
+                    <div class="adjust-row">
+                        <div class="adjust-item">
+                            <label>📏 長さ</label>
+                            <select id="adjustLength">
+                                <option value="shorter">もっと短く</option>
+                                <option value="same" selected>現状維持</option>
+                                <option value="longer">もっと長く</option>
+                            </select>
+                        </div>
+                        <div class="adjust-item">
+                            <label>🎨 髪色</label>
+                            <select id="adjustColor">
+                                <option value="same" selected>現状維持</option>
+                                <option value="black">黒髪</option>
+                                <option value="dark_brown">ダークブラウン</option>
+                                <option value="brown">ブラウン</option>
+                                <option value="light_brown">ライトブラウン</option>
+                                <option value="blonde">金髪</option>
+                                <option value="ash">アッシュ系</option>
+                                <option value="red">赤系</option>
+                            </select>
+                        </div>
+                        <div class="adjust-item">
+                            <label>💫 スタイル</label>
+                            <select id="adjustStyle">
+                                <option value="same" selected>現状維持</option>
+                                <option value="straight">ストレート</option>
+                                <option value="wavy">ウェーブ</option>
+                                <option value="curly">パーマ</option>
+                                <option value="natural">ナチュラル</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button id="regenerateBtn" class="btn btn-primary regenerate-btn">
+                        🔄 この設定で再生成
+                    </button>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="downloadBtn" class="btn btn-success">
+                        💾 保存
+                    </button>
+                    <button id="retryBtn" class="btn btn-secondary">
+                        🔙 髪型を選び直す
+                    </button>
+                    <button id="newBtn" class="btn btn-secondary">
+                        🆕 最初からやり直す
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="hairstyle.js"></script>
+</body>
+</html>

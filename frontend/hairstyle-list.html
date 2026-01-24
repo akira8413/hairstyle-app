@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>試着履歴 - ヘアスタイル試着アプリ</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 試着履歴</h1>
+            <div class="header-buttons">
+                <button class="btn btn-back" onclick="window.location.href='index.html'">🏠 ホーム</button>
+                <button class="btn btn-primary" onclick="window.location.href='hairstyle.html'">+ 新しく試す</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- 統計情報 -->
+            <div class="hairstyle-stats-section">
+                <h2>📊 統計</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">💇</div>
+                        <div class="stat-content">
+                            <h3 id="totalTries">0</h3>
+                            <p>試着回数</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-content">
+                            <h3 id="avgScore">0</h3>
+                            <p>平均似合う度</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-content">
+                            <h3 id="bestScore">0</h3>
+                            <p>最高スコア</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎨</div>
+                        <div class="stat-content">
+                            <h3 id="mostCommonStyle">-</h3>
+                            <p>よく試すスタイル</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 試着履歴一覧 -->
+            <div class="hairstyle-list-section">
+                <div class="section-header">
+                    <h2>💇 試着履歴</h2>
+                    <div class="sort-controls">
+                        <select id="sortOrder" class="form-control filter-select">
+                            <option value="desc">新しい順</option>
+                            <option value="asc">古い順</option>
+                            <option value="score_desc">スコア高い順</option>
+                            <option value="score_asc">スコア低い順</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="historyContainer" class="hairstyle-history-container">
+                    <!-- 試着履歴カードがここに表示される -->
+                </div>
+
+                <!-- 空状態 -->
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <div class="empty-state-icon">📭</div>
+                    <h3>まだ試着履歴がありません</h3>
+                    <p>ヘアスタイルを試してみましょう</p>
+                    <button class="btn btn-primary" onclick="window.location.href='hairstyle.html'">
+                        <span class="icon">💇</span>
+                        ヘアスタイルを試す
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // DOM要素の取得
+        const totalTries = document.getElementById('totalTries');
+        const avgScore = document.getElementById('avgScore');
+        const bestScore = document.getElementById('bestScore');
+        const mostCommonStyle = document.getElementById('mostCommonStyle');
+        const historyContainer = document.getElementById('historyContainer');
+        const emptyState = document.getElementById('emptyState');
+        const sortOrder = document.getElementById('sortOrder');
+
+        // 全試着履歴を保持
+        let allHistory = [];
+
+        // ページ読み込み時の処理
+        window.addEventListener('load', () => {
+            loadAllHistory();
+            displayStatistics();
+            displayHistory();
+        });
+
+        // ソート順変更時
+        sortOrder.addEventListener('change', () => {
+            displayHistory();
+        });
+
+        // 全試着履歴を読み込む
+        function loadAllHistory() {
+            allHistory = [];
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                try {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    if (!data) continue;
+
+                    // hairstyle_で始まるキー
+                    if (key && key.startsWith('hairstyle_')) {
+                        allHistory.push(data);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse data:', key, e);
+                }
+            }
+
+            // デフォルトは新しい順
+            allHistory.sort((a, b) => {
+                const dateA = new Date(a.savedAt || 0);
+                const dateB = new Date(b.savedAt || 0);
+                return dateB - dateA;
+            });
+        }
+
+        // 統計情報を表示
+        function displayStatistics() {
+            // 試着回数
+            totalTries.textContent = allHistory.length;
+
+            if (allHistory.length === 0) {
+                avgScore.textContent = '0';
+                bestScore.textContent = '0';
+                mostCommonStyle.textContent = '-';
+                return;
+            }
+
+            // 平均スコア
+            const totalScore = allHistory.reduce((sum, item) => {
+                return sum + (item.compatibility?.score || 0);
+            }, 0);
+            const avg = Math.round(totalScore / allHistory.length);
+            avgScore.textContent = avg;
+
+            // 最高スコア
+            const maxScore = Math.max(...allHistory.map(item => item.compatibility?.score || 0));
+            bestScore.textContent = maxScore;
+
+            // よく試すスタイル
+            const styles = {};
+            allHistory.forEach(item => {
+                const style = item.styleAnalysis?.style || 'その他';
+                styles[style] = (styles[style] || 0) + 1;
+            });
+            const mostCommon = Object.keys(styles).reduce((a, b) =>
+                styles[a] > styles[b] ? a : b, '-');
+            mostCommonStyle.textContent = mostCommon;
+        }
+
+        // 試着履歴を表示
+        function displayHistory() {
+            historyContainer.innerHTML = '';
+
+            if (allHistory.length === 0) {
+                emptyState.style.display = 'block';
+                historyContainer.style.display = 'none';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+            historyContainer.style.display = 'grid';
+
+            // ソート
+            const sortedHistory = [...allHistory];
+            const order = sortOrder.value;
+
+            if (order === 'asc') {
+                sortedHistory.sort((a, b) => new Date(a.savedAt) - new Date(b.savedAt));
+            } else if (order === 'score_desc') {
+                sortedHistory.sort((a, b) => (b.compatibility?.score || 0) - (a.compatibility?.score || 0));
+            } else if (order === 'score_asc') {
+                sortedHistory.sort((a, b) => (a.compatibility?.score || 0) - (b.compatibility?.score || 0));
+            }
+
+            // カードを作成
+            sortedHistory.forEach(item => {
+                const card = createHistoryCard(item);
+                historyContainer.appendChild(card);
+            });
+        }
+
+        // 試着履歴カードを作成
+        function createHistoryCard(item) {
+            const card = document.createElement('div');
+            card.className = 'hairstyle-history-card';
+
+            // 日付フォーマット
+            const date = new Date(item.savedAt);
+            const dateStr = date.toLocaleDateString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+
+            // スコア
+            const score = item.compatibility?.score || 0;
+            const scoreClass = getScoreClass(score);
+
+            // ヘアスタイル情報
+            const style = item.styleAnalysis?.style || '不明';
+            const length = item.styleAnalysis?.length || '-';
+            const color = item.styleAnalysis?.color || '-';
+
+            card.innerHTML = `
+                <div class="history-card-images">
+                    <img src="${item.faceImage}" alt="顔写真" class="history-face-image">
+                    <div class="history-arrow">→</div>
+                    <img src="${item.styleImage}" alt="ヘアスタイル" class="history-style-image">
+                </div>
+                <div class="history-card-content">
+                    <div class="history-card-header">
+                        <h3>${style}</h3>
+                        <span class="score-badge ${scoreClass}">${score}/100</span>
+                    </div>
+                    <div class="history-card-details">
+                        <span class="history-detail-item">📏 ${length}</span>
+                        <span class="history-detail-item">🎨 ${color}</span>
+                        <span class="history-detail-item">📅 ${dateStr}</span>
+                    </div>
+                    <div class="history-card-face-type">
+                        <strong>顔型:</strong> ${item.faceAnalysis?.faceShape || '不明'}
+                    </div>
+                </div>
+                <div class="history-card-actions">
+                    <button class="btn btn-small btn-danger" onclick="deleteHistory('${item.hairstyleId}')">
+                        <span class="icon">🗑️</span>
+                        削除
+                    </button>
+                </div>
+            `;
+
+            return card;
+        }
+
+        // スコアのクラスを取得
+        function getScoreClass(score) {
+            if (score >= 90) return 'score-excellent';
+            if (score >= 75) return 'score-good';
+            if (score >= 60) return 'score-fair';
+            return 'score-poor';
+        }
+
+        // 試着履歴を削除
+        function deleteHistory(hairstyleId) {
+            if (!confirm('この試着履歴を削除しますか？')) {
+                return;
+            }
+
+            localStorage.removeItem(hairstyleId);
+
+            // リロード
+            loadAllHistory();
+            displayStatistics();
+            displayHistory();
+
+            alert('✓ 削除しました');
+        }
+    </script>
+</body>
+</html>
