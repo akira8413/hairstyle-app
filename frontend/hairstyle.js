@@ -1,3 +1,7 @@
+// ===== API Configuration =====
+// For Capacitor: change to your production URL
+const API_BASE_URL = '';  // Empty = same origin (Web), or 'https://your-api.com' (Capacitor)
+
 // ===== Preset Data =====
 const PRESETS = {
     mens: [
@@ -269,7 +273,7 @@ async function generateHairstyle() {
     loadingSection.classList.remove('hidden');
 
     try {
-        const response = await fetch('/api/v1/vision/hairstyle/generate', {
+        const response = await fetch(`${API_BASE_URL}/api/v1/vision/hairstyle/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -319,7 +323,7 @@ async function regenerateWithAdjustments() {
     loadingSection.classList.remove('hidden');
 
     try {
-        const response = await fetch('/api/v1/vision/hairstyle/adjust', {
+        const response = await fetch(`${API_BASE_URL}/api/v1/vision/hairstyle/adjust`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
