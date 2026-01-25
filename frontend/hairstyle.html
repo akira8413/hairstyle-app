@@ -2,391 +2,306 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Hair Style Simulator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* ===== SHIG Design System ===== */
         :root {
             --color-primary: #1a1a1a;
             --color-secondary: #666666;
             --color-tertiary: #999999;
             --color-background: #ffffff;
-            --color-surface: #f8f8f8;
+            --color-surface: #f5f5f5;
             --color-border: #e5e5e5;
-            --color-accent: #007AFF;
-            --color-error: #E53935;
-            --color-success: #43A047;
-
+            --color-accent: #FF6B8A;
+            --color-accent-light: #FFF0F3;
             --spacing-xs: 4px;
             --spacing-sm: 8px;
             --spacing-md: 16px;
             --spacing-lg: 24px;
-            --spacing-xl: 32px;
-            --spacing-xxl: 48px;
-
             --radius-sm: 8px;
             --radius-md: 12px;
             --radius-lg: 16px;
-
-            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --radius-full: 9999px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: var(--font-family);
+            font-family: 'Inter', -apple-system, sans-serif;
             background: var(--color-background);
             color: var(--color-primary);
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        .container {
-            max-width: 800px;
+        /* App Layout */
+        .app {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 500px;
             margin: 0 auto;
-            padding: var(--spacing-lg);
+            width: 100%;
         }
 
         /* Header */
-        header {
-            margin-bottom: var(--spacing-xxl);
+        .app-header {
+            padding: var(--spacing-md);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--color-border);
         }
 
-        header h1 {
-            font-size: 34px;
-            font-weight: 700;
-            letter-spacing: -1px;
-            margin-bottom: var(--spacing-sm);
-        }
-
-        header p {
-            color: var(--color-secondary);
-            font-size: 15px;
-        }
-
-        /* Section */
-        .section {
-            margin-bottom: var(--spacing-xl);
-        }
-
-        .section-title {
-            font-size: 13px;
+        .app-title {
+            font-size: 18px;
             font-weight: 600;
-            color: var(--color-tertiary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: var(--spacing-md);
         }
 
-        /* Card */
-        .card {
-            background: var(--color-background);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-lg);
+        /* Photo Area */
+        .photo-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: var(--spacing-lg);
+            background: var(--color-surface);
+            min-height: 350px;
+            position: relative;
         }
 
-        /* Two Column Layout */
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--spacing-md);
-        }
-
-        @media (max-width: 640px) {
-            .grid-2 {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Upload Area */
-        .upload-area {
+        .photo-placeholder {
+            width: 280px;
+            height: 350px;
             border: 2px dashed var(--color-border);
-            border-radius: var(--radius-md);
-            padding: var(--spacing-xl);
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            min-height: 200px;
+            border-radius: var(--radius-lg);
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--color-background);
         }
 
-        .upload-area:hover {
-            border-color: var(--color-primary);
-            background: var(--color-surface);
-        }
-
-        .upload-area.has-image {
-            border-style: solid;
+        .photo-placeholder:hover {
             border-color: var(--color-accent);
-            padding: var(--spacing-sm);
+            background: var(--color-accent-light);
         }
 
-        .upload-icon {
+        .photo-placeholder svg {
             width: 48px;
             height: 48px;
+            color: var(--color-tertiary);
             margin-bottom: var(--spacing-md);
-            color: var(--color-tertiary);
         }
 
-        .upload-text {
-            font-size: 15px;
+        .photo-placeholder span {
             color: var(--color-secondary);
+            font-size: 14px;
         }
 
-        .upload-hint {
-            font-size: 13px;
-            color: var(--color-tertiary);
-            margin-top: var(--spacing-xs);
-        }
-
-        .preview-image {
-            width: 100%;
-            max-height: 250px;
+        .photo-preview {
+            max-width: 100%;
+            max-height: 350px;
+            border-radius: var(--radius-lg);
             object-fit: contain;
-            border-radius: var(--radius-sm);
         }
 
-        /* Tabs */
-        .tabs {
+        .photo-actions {
+            position: absolute;
+            bottom: var(--spacing-lg);
             display: flex;
             gap: var(--spacing-sm);
+        }
+
+        .photo-action-btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: var(--radius-full);
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background: var(--color-background);
+            border-top: 1px solid var(--color-border);
+            padding: var(--spacing-md) 0;
+        }
+
+        /* Mode Tabs */
+        .mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            padding: 0 var(--spacing-md);
             margin-bottom: var(--spacing-md);
         }
 
-        .tab {
-            flex: 1;
-            padding: var(--spacing-md);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            background: var(--color-background);
-            font-size: 15px;
+        .mode-tab {
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border: none;
+            background: var(--color-surface);
+            border-radius: var(--radius-full);
+            font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.2s;
         }
 
-        .tab:hover {
-            border-color: var(--color-primary);
-        }
-
-        .tab.active {
+        .mode-tab.active {
             background: var(--color-primary);
-            border-color: var(--color-primary);
             color: white;
         }
 
-        /* Preset Grid */
-        .preset-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: var(--spacing-sm);
+        /* Gender Tabs */
+        .gender-tabs {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-md);
+            padding: 0 var(--spacing-md);
+            margin-bottom: var(--spacing-md);
         }
 
-        .preset-btn {
-            padding: var(--spacing-md);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-md);
-            background: var(--color-background);
-            text-align: left;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .preset-btn:hover {
-            border-color: var(--color-primary);
-            background: var(--color-surface);
-        }
-
-        .preset-btn.selected {
-            border-color: var(--color-accent);
-            background: #F0F7FF;
-        }
-
-        .preset-name {
-            font-size: 15px;
-            font-weight: 600;
-            margin-bottom: var(--spacing-xs);
-        }
-
-        .preset-desc {
+        .gender-tab {
+            padding: var(--spacing-xs) var(--spacing-md);
+            border: none;
+            background: transparent;
             font-size: 13px;
-            color: var(--color-secondary);
+            color: var(--color-tertiary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
         }
 
-        /* Buttons */
-        .btn {
-            display: inline-flex;
+        .gender-tab.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        /* Preset Scroll */
+        .preset-scroll {
+            overflow-x: auto;
+            padding: 0 var(--spacing-md);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .preset-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .preset-row {
+            display: flex;
+            gap: var(--spacing-sm);
+            padding-bottom: var(--spacing-sm);
+        }
+
+        /* Preset Item */
+        .preset-item {
+            flex-shrink: 0;
+            width: 72px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .preset-thumb {
+            width: 72px;
+            height: 72px;
+            border-radius: var(--radius-md);
+            background: var(--color-surface);
+            border: 2px solid transparent;
+            overflow: hidden;
+            margin-bottom: var(--spacing-xs);
+            transition: all 0.2s;
+            display: flex;
             align-items: center;
             justify-content: center;
-            padding: var(--spacing-md) var(--spacing-lg);
-            border: none;
-            border-radius: var(--radius-md);
-            font-family: var(--font-family);
-            font-size: 17px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
         }
 
-        .btn:disabled {
-            opacity: 0.4;
+        .preset-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preset-thumb svg {
+            width: 24px;
+            height: 24px;
+            color: var(--color-tertiary);
+        }
+
+        .preset-item.selected .preset-thumb {
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 2px var(--color-accent-light);
+        }
+
+        .preset-label {
+            font-size: 11px;
+            color: var(--color-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .preset-badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: var(--color-accent);
+            color: white;
+            font-size: 9px;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        .preset-thumb-wrapper {
+            position: relative;
+        }
+
+        /* Generate Button */
+        .generate-section {
+            padding: var(--spacing-md);
+            padding-top: 0;
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: var(--spacing-md);
+            background: linear-gradient(135deg, #FF6B8A 0%, #FF8E53 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
         }
 
-        .btn-primary {
-            background: var(--color-primary);
-            color: white;
-            width: 100%;
+        .generate-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 107, 138, 0.4);
         }
 
-        .btn-primary:hover:not(:disabled) {
-            background: #333;
-        }
-
-        .btn-secondary {
-            background: var(--color-surface);
-            color: var(--color-primary);
-            border: 1px solid var(--color-border);
-        }
-
-        .btn-secondary:hover:not(:disabled) {
-            background: var(--color-border);
-        }
-
-        .btn-group {
-            display: flex;
-            gap: var(--spacing-sm);
-            margin-top: var(--spacing-md);
-        }
-
-        .btn-group .btn {
-            flex: 1;
-        }
-
-        /* Result Section */
-        .result-header {
-            text-align: center;
-            margin-bottom: var(--spacing-lg);
-        }
-
-        .result-header h2 {
-            font-size: 22px;
-            font-weight: 600;
-            margin-bottom: var(--spacing-xs);
-        }
-
-        .comparison {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: var(--spacing-md);
-            align-items: center;
-            margin-bottom: var(--spacing-lg);
-        }
-
-        .comparison-item {
-            text-align: center;
-        }
-
-        .comparison-item img {
-            width: 100%;
-            max-height: 200px;
-            object-fit: contain;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--color-border);
-        }
-
-        .comparison-label {
-            font-size: 13px;
-            color: var(--color-secondary);
-            margin-top: var(--spacing-sm);
-        }
-
-        .comparison-arrow {
-            color: var(--color-tertiary);
-            font-size: 24px;
-        }
-
-        .result-image-container {
-            text-align: center;
-            margin-bottom: var(--spacing-lg);
-        }
-
-        .result-image {
-            max-width: 100%;
-            max-height: 400px;
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--color-border);
-        }
-
-        /* Adjust Panel */
-        .adjust-panel {
-            background: var(--color-surface);
-            border-radius: var(--radius-lg);
-            padding: var(--spacing-lg);
-            margin-bottom: var(--spacing-lg);
-        }
-
-        .adjust-title {
-            font-size: 15px;
-            font-weight: 600;
-            margin-bottom: var(--spacing-md);
-        }
-
-        .adjust-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: var(--spacing-md);
-        }
-
-        @media (max-width: 640px) {
-            .adjust-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .adjust-item label {
-            display: block;
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--color-secondary);
-            margin-bottom: var(--spacing-xs);
-        }
-
-        .adjust-item select {
-            width: 100%;
-            padding: var(--spacing-sm) var(--spacing-md);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            font-family: var(--font-family);
-            font-size: 15px;
-            background: var(--color-background);
-            cursor: pointer;
-        }
-
-        .adjust-item select:focus {
-            outline: none;
-            border-color: var(--color-accent);
-        }
-
-        /* Loading */
+        /* Loading Overlay */
         .loading-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255,255,255,0.95);
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             z-index: 1000;
         }
 
@@ -394,18 +309,16 @@
             width: 48px;
             height: 48px;
             border: 3px solid var(--color-border);
-            border-top-color: var(--color-primary);
+            border-top-color: var(--color-accent);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .loading-text {
             margin-top: var(--spacing-lg);
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 500;
         }
 
@@ -415,162 +328,191 @@
             color: var(--color-secondary);
         }
 
-        /* Utilities */
-        .hidden {
-            display: none !important;
+        /* Result Section */
+        .result-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
-        .text-center {
-            text-align: center;
-        }
-
-        .mt-md {
-            margin-top: var(--spacing-md);
-        }
-
-        .mt-lg {
-            margin-top: var(--spacing-lg);
-        }
-
-        /* Selection indicator */
-        .selection-badge {
-            display: inline-block;
-            padding: var(--spacing-xs) var(--spacing-md);
+        .result-photo-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-lg);
             background: var(--color-surface);
-            border-radius: var(--radius-sm);
-            font-size: 13px;
-            color: var(--color-secondary);
+        }
+
+        .result-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: var(--radius-lg);
+        }
+
+        .result-controls {
+            padding: var(--spacing-md);
+            background: var(--color-background);
+            border-top: 1px solid var(--color-border);
+        }
+
+        .result-tabs {
+            display: flex;
+            gap: var(--spacing-sm);
             margin-bottom: var(--spacing-md);
         }
 
-        .selection-badge strong {
+        .result-tab {
+            flex: 1;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--color-border);
+            background: var(--color-background);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .result-tab.active {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        .adjust-options {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .adjust-select {
+            flex: 1;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            background: var(--color-background);
+        }
+
+        .result-actions {
+            display: flex;
+            gap: var(--spacing-sm);
+        }
+
+        .result-btn {
+            flex: 1;
+            padding: var(--spacing-md);
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .result-btn-primary {
+            background: var(--color-primary);
+            color: white;
+        }
+
+        .result-btn-secondary {
+            background: var(--color-surface);
             color: var(--color-primary);
         }
+
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Hair Style<br>Simulator</h1>
-            <p>AIがあなたに似合う髪型をシミュレート</p>
-        </header>
+    <div class="app">
+        <!-- Input Section -->
+        <div id="inputSection">
+            <header class="app-header">
+                <span></span>
+                <span class="app-title">Hair Style</span>
+                <span></span>
+            </header>
 
-        <main>
-            <!-- Input Section -->
-            <div id="inputSection">
-                <div class="grid-2">
-                    <!-- Face Photo -->
-                    <div class="section">
-                        <div class="section-title">顔写真</div>
-                        <div class="card">
-                            <div id="faceDropZone" class="upload-area">
-                                <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15"/>
-                                </svg>
-                                <span class="upload-text">写真を選択</span>
-                                <span class="upload-hint">タップしてアップロード</span>
-                            </div>
-                            <img id="facePreview" class="preview-image hidden" alt="顔写真">
-                            <input type="file" id="faceInput" accept="image/*" style="display: none;">
-                            <div class="btn-group hidden" id="faceButtons">
-                                <button id="faceCameraBtn" class="btn btn-secondary">撮影</button>
-                                <button id="faceFileBtn" class="btn btn-secondary">変更</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Hairstyle Selection -->
-                    <div class="section">
-                        <div class="section-title">髪型スタイル</div>
-                        <div class="card">
-                            <div class="tabs">
-                                <button class="tab active" data-gender="mens">メンズ</button>
-                                <button class="tab" data-gender="ladies">レディース</button>
-                            </div>
-                            <div id="presetContainer" class="preset-grid"></div>
-                            <div id="selectionSummary" class="selection-badge hidden">
-                                選択中: <strong id="selectedStyleName">-</strong>
-                            </div>
-                        </div>
-                    </div>
+            <!-- Photo Area -->
+            <div class="photo-area">
+                <div id="photoPlaceholder" class="photo-placeholder">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15"/>
+                    </svg>
+                    <span>タップして写真を選択</span>
                 </div>
-
-                <button id="generateBtn" class="btn btn-primary mt-lg" disabled>
-                    シミュレーションを開始
-                </button>
+                <img id="photoPreview" class="photo-preview hidden" alt="写真">
+                <input type="file" id="photoInput" accept="image/*" style="display:none">
+                <div id="photoActions" class="photo-actions hidden">
+                    <button class="photo-action-btn" id="retakeBtn">撮り直す</button>
+                </div>
             </div>
 
-            <!-- Loading -->
-            <div id="loadingSection" class="loading-overlay hidden">
-                <div class="spinner"></div>
-                <p class="loading-text">髪型を生成中...</p>
-                <p class="loading-hint">10〜15秒ほどお待ちください</p>
-            </div>
-
-            <!-- Result Section -->
-            <div id="resultSection" class="hidden">
-                <div class="result-header">
-                    <h2>シミュレーション結果</h2>
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <!-- Mode Tabs -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" data-mode="preset">プリセット</button>
+                    <button class="mode-tab" data-mode="custom">カスタム</button>
                 </div>
 
-                <div class="comparison">
-                    <div class="comparison-item">
-                        <img id="resultFace" alt="元の写真">
-                        <p class="comparison-label">Before</p>
-                    </div>
-                    <span class="comparison-arrow">→</span>
-                    <div class="comparison-item">
-                        <img id="resultGenerated" alt="合成後">
-                        <p class="comparison-label">After</p>
-                    </div>
+                <!-- Gender Tabs -->
+                <div class="gender-tabs">
+                    <button class="gender-tab active" data-gender="mens">メンズ</button>
+                    <button class="gender-tab" data-gender="ladies">レディース</button>
                 </div>
 
-                <div class="result-image-container">
-                    <img id="resultImageLarge" class="result-image" alt="合成結果">
+                <!-- Preset Scroll -->
+                <div class="preset-scroll">
+                    <div id="presetRow" class="preset-row"></div>
                 </div>
 
-                <div class="adjust-panel">
-                    <div class="adjust-title">スタイル調整</div>
-                    <div class="adjust-grid">
-                        <div class="adjust-item">
-                            <label>長さ</label>
-                            <select id="adjustLength">
-                                <option value="shorter">短く</option>
-                                <option value="same" selected>そのまま</option>
-                                <option value="longer">長く</option>
-                            </select>
-                        </div>
-                        <div class="adjust-item">
-                            <label>髪色</label>
-                            <select id="adjustColor">
-                                <option value="same" selected>そのまま</option>
-                                <option value="black">黒</option>
-                                <option value="dark_brown">ダークブラウン</option>
-                                <option value="brown">ブラウン</option>
-                                <option value="ash">アッシュ</option>
-                            </select>
-                        </div>
-                        <div class="adjust-item">
-                            <label>質感</label>
-                            <select id="adjustStyle">
-                                <option value="same" selected>そのまま</option>
-                                <option value="straight">ストレート</option>
-                                <option value="wavy">ウェーブ</option>
-                                <option value="curly">パーマ</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button id="regenerateBtn" class="btn btn-primary mt-md">
-                        この設定で再生成
+                <!-- Generate Button -->
+                <div class="generate-section">
+                    <button id="generateBtn" class="generate-btn" disabled>
+                        髪型を変える
                     </button>
                 </div>
+            </div>
+        </div>
 
-                <div class="btn-group">
-                    <button id="downloadBtn" class="btn btn-primary">保存</button>
-                    <button id="retryBtn" class="btn btn-secondary">やり直す</button>
+        <!-- Loading -->
+        <div id="loadingSection" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <p class="loading-text">髪型を生成中...</p>
+            <p class="loading-hint">10〜15秒ほどお待ちください</p>
+        </div>
+
+        <!-- Result Section -->
+        <div id="resultSection" class="result-section hidden">
+            <header class="app-header">
+                <button id="backBtn" style="background:none;border:none;font-size:24px;cursor:pointer;">←</button>
+                <span class="app-title">結果</span>
+                <button id="shareBtn" style="background:none;border:none;font-size:20px;cursor:pointer;">↗</button>
+            </header>
+
+            <div class="result-photo-area">
+                <img id="resultImage" class="result-image" alt="結果">
+            </div>
+
+            <div class="result-controls">
+                <div class="adjust-options">
+                    <select id="adjustLength" class="adjust-select">
+                        <option value="same">長さ: そのまま</option>
+                        <option value="shorter">短く</option>
+                        <option value="longer">長く</option>
+                    </select>
+                    <select id="adjustColor" class="adjust-select">
+                        <option value="same">色: そのまま</option>
+                        <option value="black">黒髪</option>
+                        <option value="brown">ブラウン</option>
+                        <option value="ash">アッシュ</option>
+                    </select>
+                </div>
+                <div class="result-actions">
+                    <button id="regenerateBtn" class="result-btn result-btn-secondary">再生成</button>
+                    <button id="downloadBtn" class="result-btn result-btn-primary">保存</button>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
 
     <script src="hairstyle.js"></script>

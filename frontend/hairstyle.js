@@ -1,51 +1,41 @@
 // ===== API Configuration =====
-// For Capacitor: change to your production URL
-const API_BASE_URL = '';  // Empty = same origin (Web), or 'https://your-api.com' (Capacitor)
+const API_BASE_URL = '';
 
-// ===== Preset Data =====
+// ===== Preset Data with Thumbnail Placeholders =====
 const PRESETS = {
     mens: [
-        { id: 'mens_very_short', name: 'ベリーショート', desc: 'スッキリ爽やか', prompt: 'very short hair, buzz cut style, clean and fresh look' },
-        { id: 'mens_short', name: 'ショート', desc: 'スタンダード', prompt: 'short hair, natural short hairstyle for men' },
-        { id: 'mens_two_block', name: 'ツーブロック', desc: '刈り上げスタイル', prompt: 'two-block haircut, undercut style, shaved sides with longer top' },
-        { id: 'mens_mash', name: 'マッシュ', desc: '丸みのある', prompt: 'mushroom haircut, mash hairstyle, rounded shape covering forehead' },
-        { id: 'mens_center_part', name: 'センターパート', desc: '真ん中分け', prompt: 'center parted hair, middle part hairstyle for men' },
-        { id: 'mens_medium', name: 'ミディアム', desc: '耳が隠れる程度', prompt: 'medium length hair for men, ear-covering length' },
-        { id: 'mens_wolf', name: 'ウルフ', desc: 'レイヤースタイル', prompt: 'wolf cut hairstyle, layered hair with volume on top and thin ends' },
-        { id: 'mens_long', name: 'ロング', desc: '肩より長い', prompt: 'long hair for men, shoulder length or longer' },
+        { id: 'none', name: 'なし', prompt: null, thumb: null },
+        { id: 'mens_short', name: 'ショート', prompt: 'short hair, natural short hairstyle for men, clean cut', thumb: 'M1' },
+        { id: 'mens_two_block', name: 'ツーブロック', prompt: 'two-block haircut, undercut style, shaved sides with longer top', thumb: 'M2' },
+        { id: 'mens_mash', name: 'マッシュ', prompt: 'mushroom haircut, mash hairstyle, rounded shape covering forehead', thumb: 'M3' },
+        { id: 'mens_center', name: 'センターパート', prompt: 'center parted hair, middle part hairstyle for men', thumb: 'M4' },
+        { id: 'mens_wolf', name: 'ウルフ', prompt: 'wolf cut hairstyle, layered hair with volume on top', thumb: 'M5' },
+        { id: 'mens_perm', name: 'パーマ', prompt: 'permed hair for men, curly textured hairstyle', thumb: 'M6' },
+        { id: 'mens_long', name: 'ロング', prompt: 'long hair for men, shoulder length or longer', thumb: 'M7' },
     ],
     ladies: [
-        { id: 'ladies_very_short', name: 'ベリーショート', desc: 'ボーイッシュ', prompt: 'very short pixie cut for women, boyish style' },
-        { id: 'ladies_short_bob', name: 'ショートボブ', desc: 'あご上ライン', prompt: 'short bob haircut, chin-length bob for women' },
-        { id: 'ladies_bob', name: 'ボブ', desc: '定番ボブ', prompt: 'bob haircut, classic bob hairstyle for women' },
-        { id: 'ladies_lob', name: 'ロブ', desc: 'ロングボブ', prompt: 'lob haircut, long bob, shoulder-length bob' },
-        { id: 'ladies_medium', name: 'ミディアム', desc: '鎖骨くらい', prompt: 'medium length hair for women, collarbone length' },
-        { id: 'ladies_medium_layer', name: 'レイヤーミディ', desc: '動きのある', prompt: 'medium layered haircut for women, movement and volume' },
-        { id: 'ladies_long', name: 'ロング', desc: '胸より長い', prompt: 'long straight hair for women, chest length or longer' },
-        { id: 'ladies_long_wave', name: 'ロングウェーブ', desc: 'ゆるふわ巻き', prompt: 'long wavy hair for women, loose waves, romantic style' },
+        { id: 'none', name: 'なし', prompt: null, thumb: null },
+        { id: 'ladies_short', name: 'ショート', prompt: 'short pixie cut for women, boyish style', thumb: 'L1' },
+        { id: 'ladies_bob', name: 'ボブ', prompt: 'bob haircut, classic bob hairstyle for women', thumb: 'L2' },
+        { id: 'ladies_lob', name: 'ロブ', prompt: 'lob haircut, long bob, shoulder-length', thumb: 'L3' },
+        { id: 'ladies_medium', name: 'ミディアム', prompt: 'medium length hair for women, collarbone length', thumb: 'L4' },
+        { id: 'ladies_layer', name: 'レイヤー', prompt: 'layered haircut for women, movement and volume', thumb: 'L5' },
+        { id: 'ladies_long', name: 'ロング', prompt: 'long straight hair for women', thumb: 'L6' },
+        { id: 'ladies_wave', name: 'ウェーブ', prompt: 'long wavy hair for women, loose waves', thumb: 'L7' },
     ]
 };
 
-// Adjustment mappings
 const LENGTH_MAP = {
-    shorter: 'make the hair shorter than before',
+    shorter: 'make the hair shorter',
     same: '',
-    longer: 'make the hair longer than before'
+    longer: 'make the hair longer'
 };
 
 const COLOR_MAP = {
     same: '',
     black: 'jet black hair color',
-    dark_brown: 'dark brown hair color',
-    brown: 'medium brown hair color',
+    brown: 'brown hair color',
     ash: 'ash gray hair color'
-};
-
-const STYLE_MAP = {
-    same: '',
-    straight: 'straight hair texture',
-    wavy: 'wavy hair texture',
-    curly: 'curly permed hair'
 };
 
 // ===== DOM Elements =====
@@ -53,39 +43,28 @@ const inputSection = document.getElementById('inputSection');
 const loadingSection = document.getElementById('loadingSection');
 const resultSection = document.getElementById('resultSection');
 
-// Face photo
-const faceDropZone = document.getElementById('faceDropZone');
-const faceInput = document.getElementById('faceInput');
-const facePreview = document.getElementById('facePreview');
-const faceButtons = document.getElementById('faceButtons');
-const faceCameraBtn = document.getElementById('faceCameraBtn');
-const faceFileBtn = document.getElementById('faceFileBtn');
+const photoPlaceholder = document.getElementById('photoPlaceholder');
+const photoPreview = document.getElementById('photoPreview');
+const photoInput = document.getElementById('photoInput');
+const photoActions = document.getElementById('photoActions');
+const retakeBtn = document.getElementById('retakeBtn');
 
-// Presets
-const presetContainer = document.getElementById('presetContainer');
-const tabs = document.querySelectorAll('.tab');
-const selectionSummary = document.getElementById('selectionSummary');
-const selectedStyleName = document.getElementById('selectedStyleName');
-
-// Buttons
+const modeTabs = document.querySelectorAll('.mode-tab');
+const genderTabs = document.querySelectorAll('.gender-tab');
+const presetRow = document.getElementById('presetRow');
 const generateBtn = document.getElementById('generateBtn');
-const downloadBtn = document.getElementById('downloadBtn');
-const retryBtn = document.getElementById('retryBtn');
-const regenerateBtn = document.getElementById('regenerateBtn');
 
-// Adjustments
+const resultImage = document.getElementById('resultImage');
+const backBtn = document.getElementById('backBtn');
+const shareBtn = document.getElementById('shareBtn');
+const regenerateBtn = document.getElementById('regenerateBtn');
+const downloadBtn = document.getElementById('downloadBtn');
 const adjustLength = document.getElementById('adjustLength');
 const adjustColor = document.getElementById('adjustColor');
-const adjustStyle = document.getElementById('adjustStyle');
-
-// Result display
-const resultFace = document.getElementById('resultFace');
-const resultGenerated = document.getElementById('resultGenerated');
-const resultImageLarge = document.getElementById('resultImageLarge');
 
 // ===== State =====
-let faceImageData = null;
-let generatedImageData = null;
+let photoData = null;
+let generatedData = null;
 let currentGender = 'mens';
 let selectedPreset = null;
 
@@ -96,103 +75,110 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== Event Listeners =====
 
-// Face photo
-faceDropZone.addEventListener('click', () => faceInput.click());
-
-if (faceCameraBtn) {
-    faceCameraBtn.addEventListener('click', () => {
-        faceInput.setAttribute('capture', 'user');
-        faceInput.click();
-    });
-}
-
-if (faceFileBtn) {
-    faceFileBtn.addEventListener('click', () => {
-        faceInput.removeAttribute('capture');
-        faceInput.click();
-    });
-}
-
-faceInput.addEventListener('change', (e) => {
-    if (e.target.files[0]) {
-        loadImage(e.target.files[0]);
-    }
+// Photo selection
+photoPlaceholder.addEventListener('click', () => photoInput.click());
+photoInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) loadPhoto(e.target.files[0]);
 });
 
-setupDropZone(faceDropZone, faceInput);
+retakeBtn.addEventListener('click', () => {
+    photoInput.click();
+});
+
+// Mode tabs
+modeTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        modeTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+    });
+});
 
 // Gender tabs
-tabs.forEach(tab => {
+genderTabs.forEach(tab => {
     tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
+        genderTabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         currentGender = tab.dataset.gender;
         selectedPreset = null;
         renderPresets(currentGender);
-        updateSelectionSummary();
         updateGenerateButton();
     });
 });
 
-// Generate button
-generateBtn.addEventListener('click', generateHairstyle);
+// Generate
+generateBtn.addEventListener('click', generate);
 
-// Result buttons
-downloadBtn.addEventListener('click', downloadImage);
-
-retryBtn.addEventListener('click', () => {
+// Result controls
+backBtn.addEventListener('click', () => {
     resultSection.classList.add('hidden');
     inputSection.classList.remove('hidden');
-    adjustLength.value = 'same';
-    adjustColor.value = 'same';
-    adjustStyle.value = 'same';
 });
 
-regenerateBtn.addEventListener('click', regenerateWithAdjustments);
+shareBtn.addEventListener('click', async () => {
+    if (navigator.share && generatedData) {
+        try {
+            const blob = await fetch(generatedData).then(r => r.blob());
+            const file = new File([blob], 'hairstyle.png', { type: 'image/png' });
+            await navigator.share({ files: [file] });
+        } catch (e) {
+            console.log('Share cancelled');
+        }
+    }
+});
+
+regenerateBtn.addEventListener('click', regenerate);
+downloadBtn.addEventListener('click', download);
 
 // ===== Functions =====
 
 function renderPresets(gender) {
     const presets = PRESETS[gender];
-    presetContainer.innerHTML = '';
+    presetRow.innerHTML = '';
 
     presets.forEach(preset => {
-        const btn = document.createElement('button');
-        btn.className = 'preset-btn';
-        btn.dataset.presetId = preset.id;
-        btn.innerHTML = `
-            <div class="preset-name">${preset.name}</div>
-            <div class="preset-desc">${preset.desc}</div>
-        `;
-        btn.addEventListener('click', () => selectPreset(preset));
-        presetContainer.appendChild(btn);
+        const item = document.createElement('div');
+        item.className = 'preset-item';
+        item.dataset.presetId = preset.id;
+
+        const thumb = document.createElement('div');
+        thumb.className = 'preset-thumb';
+
+        if (preset.id === 'none') {
+            thumb.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
+                <path stroke-linecap="round" stroke-width="1.5" d="M6 6l12 12"/>
+            </svg>`;
+        } else {
+            // Placeholder with initials
+            thumb.style.background = `linear-gradient(135deg, #e0e0e0, #f5f5f5)`;
+            thumb.innerHTML = `<span style="font-size:14px;color:#999;">${preset.thumb}</span>`;
+        }
+
+        const label = document.createElement('div');
+        label.className = 'preset-label';
+        label.textContent = preset.name;
+
+        item.appendChild(thumb);
+        item.appendChild(label);
+        item.addEventListener('click', () => selectPreset(preset, item));
+        presetRow.appendChild(item);
     });
 }
 
-function selectPreset(preset) {
-    selectedPreset = preset;
+function selectPreset(preset, element) {
+    document.querySelectorAll('.preset-item').forEach(el => el.classList.remove('selected'));
 
-    document.querySelectorAll('.preset-btn').forEach(btn => {
-        btn.classList.remove('selected');
-        if (btn.dataset.presetId === preset.id) {
-            btn.classList.add('selected');
-        }
-    });
+    if (preset.id === 'none') {
+        selectedPreset = null;
+    } else {
+        selectedPreset = preset;
+        element.classList.add('selected');
+    }
 
-    updateSelectionSummary();
     updateGenerateButton();
 }
 
-function updateSelectionSummary() {
-    if (selectedPreset) {
-        selectionSummary.classList.remove('hidden');
-        selectedStyleName.textContent = selectedPreset.name;
-    } else {
-        selectionSummary.classList.add('hidden');
-    }
-}
-
-function loadImage(file) {
+function loadPhoto(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const img = new Image();
@@ -215,14 +201,11 @@ function loadImage(file) {
             canvas.height = height;
             ctx.drawImage(img, 0, 0, width, height);
 
-            faceImageData = canvas.toDataURL('image/jpeg', 0.85);
-            facePreview.src = faceImageData;
-            facePreview.classList.remove('hidden');
-            faceDropZone.classList.add('hidden');
-
-            if (faceButtons) {
-                faceButtons.classList.remove('hidden');
-            }
+            photoData = canvas.toDataURL('image/jpeg', 0.85);
+            photoPreview.src = photoData;
+            photoPreview.classList.remove('hidden');
+            photoPlaceholder.classList.add('hidden');
+            photoActions.classList.remove('hidden');
 
             updateGenerateButton();
         };
@@ -231,43 +214,12 @@ function loadImage(file) {
     reader.readAsDataURL(file);
 }
 
-function setupDropZone(dropZone, input) {
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = 'var(--color-primary)';
-        dropZone.style.background = 'var(--color-surface)';
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '';
-        dropZone.style.background = '';
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.style.borderColor = '';
-        dropZone.style.background = '';
-
-        if (e.dataTransfer.files[0]) {
-            loadImage(e.dataTransfer.files[0]);
-        }
-    });
-}
-
 function updateGenerateButton() {
-    generateBtn.disabled = !(faceImageData && selectedPreset);
+    generateBtn.disabled = !(photoData && selectedPreset);
 }
 
-async function generateHairstyle() {
-    if (!faceImageData) {
-        alert('顔写真を選択してください');
-        return;
-    }
-    if (!selectedPreset) {
-        alert('髪型を選択してください');
-        return;
-    }
+async function generate() {
+    if (!photoData || !selectedPreset) return;
 
     inputSection.classList.add('hidden');
     loadingSection.classList.remove('hidden');
@@ -277,7 +229,7 @@ async function generateHairstyle() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                face: faceImageData,
+                face: photoData,
                 preset: selectedPreset.prompt,
                 presetName: selectedPreset.name,
                 gender: currentGender
@@ -287,14 +239,11 @@ async function generateHairstyle() {
         const data = await response.json();
 
         if (!response.ok || data.error) {
-            throw new Error(data.error || data.message || '生成に失敗しました');
+            throw new Error(data.error || 'Generation failed');
         }
 
-        generatedImageData = data.generatedImage;
-
-        resultFace.src = faceImageData;
-        resultGenerated.src = generatedImageData;
-        resultImageLarge.src = generatedImageData;
+        generatedData = data.generatedImage;
+        resultImage.src = generatedData;
 
         loadingSection.classList.add('hidden');
         resultSection.classList.remove('hidden');
@@ -307,14 +256,13 @@ async function generateHairstyle() {
     }
 }
 
-async function regenerateWithAdjustments() {
-    if (!generatedImageData) return;
+async function regenerate() {
+    if (!generatedData) return;
 
     const lengthAdj = adjustLength.value;
     const colorAdj = adjustColor.value;
-    const styleAdj = adjustStyle.value;
 
-    if (lengthAdj === 'same' && colorAdj === 'same' && styleAdj === 'same') {
+    if (lengthAdj === 'same' && colorAdj === 'same') {
         alert('調整項目を選択してください');
         return;
     }
@@ -327,13 +275,11 @@ async function regenerateWithAdjustments() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                face: faceImageData,
-                currentImage: generatedImageData,
-                preset: selectedPreset ? selectedPreset.prompt : null,
+                face: photoData,
+                currentImage: generatedData,
                 adjustments: {
                     length: LENGTH_MAP[lengthAdj],
-                    color: COLOR_MAP[colorAdj],
-                    style: STYLE_MAP[styleAdj]
+                    color: COLOR_MAP[colorAdj]
                 }
             })
         });
@@ -341,20 +287,17 @@ async function regenerateWithAdjustments() {
         const data = await response.json();
 
         if (!response.ok || data.error) {
-            throw new Error(data.error || data.message || '再生成に失敗しました');
+            throw new Error(data.error || 'Regeneration failed');
         }
 
-        generatedImageData = data.generatedImage;
-
-        resultGenerated.src = generatedImageData;
-        resultImageLarge.src = generatedImageData;
+        generatedData = data.generatedImage;
+        resultImage.src = generatedData;
 
         loadingSection.classList.add('hidden');
         resultSection.classList.remove('hidden');
 
         adjustLength.value = 'same';
         adjustColor.value = 'same';
-        adjustStyle.value = 'same';
 
     } catch (error) {
         console.error('Error:', error);
@@ -364,11 +307,10 @@ async function regenerateWithAdjustments() {
     }
 }
 
-function downloadImage() {
-    if (!generatedImageData) return;
-
+function download() {
+    if (!generatedData) return;
     const link = document.createElement('a');
-    link.href = generatedImageData;
+    link.href = generatedData;
     link.download = `hairstyle_${Date.now()}.png`;
     link.click();
 }
