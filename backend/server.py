@@ -461,7 +461,7 @@ def health_check():
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
+    port = 8080  # Fixed port for Coolify
     print(f"サーバーを起動しています: http://localhost:{port}")
     if GCP_PROJECT_ID:
         print(f"Vertex AI設定済み: project={GCP_PROJECT_ID}, location={GCP_LOCATION}")
