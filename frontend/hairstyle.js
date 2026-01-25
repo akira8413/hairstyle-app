@@ -1,27 +1,27 @@
 // ===== API Configuration =====
 const API_BASE_URL = '';
 
-// ===== Preset Data with Thumbnail Placeholders =====
+// ===== Preset Data with Image Paths =====
 const PRESETS = {
     mens: [
-        { id: 'none', name: 'なし', prompt: null, thumb: null },
-        { id: 'mens_short', name: 'ショート', prompt: 'short hair, natural short hairstyle for men, clean cut', thumb: 'M1' },
-        { id: 'mens_two_block', name: 'ツーブロック', prompt: 'two-block haircut, undercut style, shaved sides with longer top', thumb: 'M2' },
-        { id: 'mens_mash', name: 'マッシュ', prompt: 'mushroom haircut, mash hairstyle, rounded shape covering forehead', thumb: 'M3' },
-        { id: 'mens_center', name: 'センターパート', prompt: 'center parted hair, middle part hairstyle for men', thumb: 'M4' },
-        { id: 'mens_wolf', name: 'ウルフ', prompt: 'wolf cut hairstyle, layered hair with volume on top', thumb: 'M5' },
-        { id: 'mens_perm', name: 'パーマ', prompt: 'permed hair for men, curly textured hairstyle', thumb: 'M6' },
-        { id: 'mens_long', name: 'ロング', prompt: 'long hair for men, shoulder length or longer', thumb: 'M7' },
+        { id: 'none', name: 'なし', prompt: null, image: null },
+        { id: 'short', name: 'ショート', prompt: '清潔感のある短髪、サイドすっきり、トップに軽い動き', image: '/images/presets/mens/short.png' },
+        { id: 'twoblock', name: 'ツーブロック', prompt: 'サイドを刈り上げたツーブロック、トップは長めで流す', image: '/images/presets/mens/twoblock.png' },
+        { id: 'mash', name: 'マッシュ', prompt: '丸みのあるマッシュヘア、前髪重め、柔らかい印象', image: '/images/presets/mens/mash.png' },
+        { id: 'center', name: 'センターパート', prompt: 'センター分け、顔周りをフレーミング、韓国風', image: '/images/presets/mens/center.png' },
+        { id: 'wolf', name: 'ウルフ', prompt: 'ウルフカット、襟足長め、レイヤー多め、動きのあるスタイル', image: '/images/presets/mens/wolf.png' },
+        { id: 'perm', name: 'パーマ', prompt: 'ゆるめのパーマ、ナチュラルなウェーブ、こなれ感', image: '/images/presets/mens/perm.png' },
+        { id: 'long', name: 'ロング', prompt: '肩につく長さ、ナチュラルなストレート、清潔感', image: '/images/presets/mens/long.png' },
     ],
     ladies: [
-        { id: 'none', name: 'なし', prompt: null, thumb: null },
-        { id: 'ladies_short', name: 'ショート', prompt: 'short pixie cut for women, boyish style', thumb: 'L1' },
-        { id: 'ladies_bob', name: 'ボブ', prompt: 'bob haircut, classic bob hairstyle for women', thumb: 'L2' },
-        { id: 'ladies_lob', name: 'ロブ', prompt: 'lob haircut, long bob, shoulder-length', thumb: 'L3' },
-        { id: 'ladies_medium', name: 'ミディアム', prompt: 'medium length hair for women, collarbone length', thumb: 'L4' },
-        { id: 'ladies_layer', name: 'レイヤー', prompt: 'layered haircut for women, movement and volume', thumb: 'L5' },
-        { id: 'ladies_long', name: 'ロング', prompt: 'long straight hair for women', thumb: 'L6' },
-        { id: 'ladies_wave', name: 'ウェーブ', prompt: 'long wavy hair for women, loose waves', thumb: 'L7' },
+        { id: 'none', name: 'なし', prompt: null, image: null },
+        { id: 'short', name: 'ショート', prompt: '耳が出るショートヘア、すっきりシルエット、女性らしい', image: '/images/presets/ladies/short.png' },
+        { id: 'bob', name: 'ボブ', prompt: 'あご下ラインのボブ、内巻き、清楚な印象', image: '/images/presets/ladies/bob.png' },
+        { id: 'lob', name: 'ロブ', prompt: '肩につくロングボブ、外ハネ、こなれ感', image: '/images/presets/ladies/lob.png' },
+        { id: 'medium', name: 'ミディアム', prompt: '鎖骨ラインのミディアム、レイヤー入り、ナチュラル', image: '/images/presets/ladies/medium.png' },
+        { id: 'layer', name: 'レイヤー', prompt: 'たっぷりレイヤーの動きのあるスタイル、顔周りに軽さ', image: '/images/presets/ladies/layer.png' },
+        { id: 'long', name: 'ロング', prompt: '胸下までのロングヘア、つやつやストレート、清楚', image: '/images/presets/ladies/long.png' },
+        { id: 'wave', name: 'ウェーブ', prompt: 'ゆるふわウェーブ、巻き髪、華やかな印象', image: '/images/presets/ladies/wave.png' },
     ]
 };
 
@@ -148,10 +148,25 @@ function renderPresets(gender) {
                 <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
                 <path stroke-linecap="round" stroke-width="1.5" d="M6 6l12 12"/>
             </svg>`;
+        } else if (preset.image) {
+            // サムネイル画像を表示
+            const img = document.createElement('img');
+            img.src = preset.image;
+            img.alt = preset.name;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '8px';
+            // 画像が読み込めない場合はプレースホルダーを表示
+            img.onerror = () => {
+                thumb.innerHTML = `<span style="font-size:12px;color:#999;">${preset.name.charAt(0)}</span>`;
+                thumb.style.background = `linear-gradient(135deg, #e0e0e0, #f5f5f5)`;
+            };
+            thumb.appendChild(img);
         } else {
-            // Placeholder with initials
+            // フォールバック
             thumb.style.background = `linear-gradient(135deg, #e0e0e0, #f5f5f5)`;
-            thumb.innerHTML = `<span style="font-size:14px;color:#999;">${preset.thumb}</span>`;
+            thumb.innerHTML = `<span style="font-size:12px;color:#999;">${preset.name.charAt(0)}</span>`;
         }
 
         const label = document.createElement('div');

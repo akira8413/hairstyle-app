@@ -460,6 +460,157 @@ def health_check():
     }), 200
 
 
+# プリセット定義
+HAIRSTYLE_PRESETS = {
+    'mens': [
+        {'id': 'none', 'name': 'なし', 'prompt': None},
+        {'id': 'short', 'name': 'ショート', 'prompt': '清潔感のある短髪、サイドすっきり、トップに軽い動き'},
+        {'id': 'twoblock', 'name': 'ツーブロック', 'prompt': 'サイドを刈り上げたツーブロック、トップは長めで流す'},
+        {'id': 'mash', 'name': 'マッシュ', 'prompt': '丸みのあるマッシュヘア、前髪重め、柔らかい印象'},
+        {'id': 'center', 'name': 'センターパート', 'prompt': 'センター分け、顔周りをフレーミング、韓国風'},
+        {'id': 'wolf', 'name': 'ウルフ', 'prompt': 'ウルフカット、襟足長め、レイヤー多め、動きのあるスタイル'},
+        {'id': 'perm', 'name': 'パーマ', 'prompt': 'ゆるめのパーマ、ナチュラルなウェーブ、こなれ感'},
+        {'id': 'long', 'name': 'ロング', 'prompt': '肩につく長さ、ナチュラルなストレート、清潔感'},
+    ],
+    'ladies': [
+        {'id': 'none', 'name': 'なし', 'prompt': None},
+        {'id': 'short', 'name': 'ショート', 'prompt': '耳が出るショートヘア、すっきりシルエット、女性らしい'},
+        {'id': 'bob', 'name': 'ボブ', 'prompt': 'あご下ラインのボブ、内巻き、清楚な印象'},
+        {'id': 'lob', 'name': 'ロブ', 'prompt': '肩につくロングボブ、外ハネ、こなれ感'},
+        {'id': 'medium', 'name': 'ミディアム', 'prompt': '鎖骨ラインのミディアム、レイヤー入り、ナチュラル'},
+        {'id': 'layer', 'name': 'レイヤー', 'prompt': 'たっぷりレイヤーの動きのあるスタイル、顔周りに軽さ'},
+        {'id': 'long', 'name': 'ロング', 'prompt': '胸下までのロングヘア、つやつやストレート、清楚'},
+        {'id': 'wave', 'name': 'ウェーブ', 'prompt': 'ゆるふわウェーブ、巻き髪、華やかな印象'},
+    ]
+}
+
+
+@app.route('/api/v1/admin/generate-preset/<gender>/<preset_id>', methods=['POST'])
+def generate_preset_image(gender, preset_id):
+    """
+    プリセットサムネイル画像を生成（管理用）
+
+    パス:
+        gender: mens または ladies
+        preset_id: プリセットID（short, bob など）
+    """
+    try:
+        if gender not in HAIRSTYLE_PRESETS:
+            return jsonify({'error': '無効なジェンダー'}), 400
+
+        preset = next((p for p in HAIRSTYLE_PRESETS[gender] if p['id'] == preset_id), None)
+        if not preset:
+            return jsonify({'error': '無効なプリセットID'}), 400
+
+        if preset['prompt'] is None:
+            # 「なし」の場合はプレースホルダーを返す
+            img = Image.new('RGB', (144, 144), color='#F5F5F5')
+            from PIL import ImageDraw
+            draw = ImageDraw.Draw(img)
+            draw.ellipse([22, 22, 122, 122], outline='#CCCCCC', width=2)
+            draw.line([40, 40, 104, 104], fill='#CCCCCC', width=2)
+
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG')
+            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+            return jsonify({
+                'image': f'data:image/png;base64,{image_base64}',
+                'preset': preset
+            }), 200
+
+        if not GCP_PROJECT_ID:
+            return jsonify({'error': 'GCP_PROJECT_IDが設定されていません'}), 500
+
+        os.environ['GOOGLE_CLOUD_PROJECT'] = GCP_PROJECT_ID
+        os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
+        os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'True'
+
+        from google import genai
+        from google.genai.types import GenerateContentConfig, Modality
+
+        gender_ja = 'メンズ' if gender == 'mens' else 'レディース'
+        gender_en = 'man' if gender == 'mens' else 'woman'
+
+        prompt = f"""Generate a hairstyle sample image for a mobile app preset button.
+
+Requirements:
+- Show ONLY the hairstyle on a simple mannequin head silhouette
+- Pure white background (#FFFFFF)
+- Front-facing view, slightly angled
+- {gender_en}'s hairstyle
+- Hairstyle: {preset['name']} - {preset['prompt']}
+- Natural hair color (dark brown or black)
+- Clean, professional look suitable for a beauty app
+- The image should be square, suitable for a small thumbnail (72x72px display)
+- Focus on the hair shape and style, not facial features
+- Minimal, modern aesthetic
+
+Style reference: Beauty app preset thumbnails like BeautyPlus or SNOW app"""
+
+        client = genai.Client()
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=[prompt],
+            config=GenerateContentConfig(
+                response_modalities=[Modality.TEXT, Modality.IMAGE]
+            ),
+        )
+
+        image_base64 = None
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, 'inline_data') and part.inline_data:
+                image_base64 = base64.b64encode(part.inline_data.data).decode('utf-8')
+                break
+
+        if not image_base64:
+            return jsonify({'error': '画像生成に失敗しました'}), 500
+
+        # 画像を保存
+        output_dir = os.path.join(FRONTEND_DIR, 'images', 'presets', gender)
+        os.makedirs(output_dir, exist_ok=True)
+
+        output_path = os.path.join(output_dir, f'{preset_id}.png')
+        with open(output_path, 'wb') as f:
+            f.write(base64.b64decode(image_base64))
+
+        print(f"プリセット画像生成完了: {output_path}")
+
+        return jsonify({
+            'image': f'data:image/png;base64,{image_base64}',
+            'path': f'/images/presets/{gender}/{preset_id}.png',
+            'preset': preset
+        }), 200
+
+    except Exception as e:
+        print(f"プリセット画像生成エラー: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/admin/generate-all-presets', methods=['POST'])
+def generate_all_preset_images():
+    """
+    全プリセットサムネイル画像を一括生成（管理用）
+    """
+    results = {'success': [], 'failed': []}
+
+    for gender in ['mens', 'ladies']:
+        for preset in HAIRSTYLE_PRESETS[gender]:
+            try:
+                # 内部的にgenerate_preset_imageを呼び出す
+                with app.test_request_context():
+                    response = generate_preset_image(gender, preset['id'])
+                    if response[1] == 200:
+                        results['success'].append(f"{gender}/{preset['id']}")
+                    else:
+                        results['failed'].append(f"{gender}/{preset['id']}")
+            except Exception as e:
+                results['failed'].append(f"{gender}/{preset['id']}: {str(e)}")
+
+    return jsonify(results), 200
+
+
 if __name__ == '__main__':
     port = 8080  # Fixed port for Coolify
     print(f"サーバーを起動しています: http://localhost:{port}")
