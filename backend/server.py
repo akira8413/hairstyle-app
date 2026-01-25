@@ -18,7 +18,11 @@ import io
 import hashlib
 import tempfile
 
-app = Flask(__name__)
+# Get the base directory (where Dockerfile copies files)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
+
+app = Flask(__name__, static_folder=FRONTEND_DIR)
 CORS(app)
 
 # サービスアカウントキー（JSON）を環境変数から読み込み
@@ -93,13 +97,13 @@ def set_cached_result(image_hash: str, result_id: str, result: dict):
 @app.route('/')
 def index():
     """トップページを表示"""
-    return send_from_directory('../frontend', 'hairstyle.html')
+    return send_from_directory(FRONTEND_DIR, 'hairstyle.html')
 
 
 @app.route('/<path:path>')
 def serve_static(path):
     """静的ファイルを配信"""
-    return send_from_directory('../frontend', path)
+    return send_from_directory(FRONTEND_DIR, path)
 
 
 @app.route('/api/v1/vision/hairstyle', methods=['POST'])
