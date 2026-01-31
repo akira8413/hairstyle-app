@@ -13,7 +13,9 @@ ENV/
 .env
 *.json
 !package.json
+!package-lock.json
 !capacitor.config.json
+!pubspec.lock
 
 # IDE
 .idea/
@@ -28,3 +30,22 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Flutter / Android
+mobile/build/
+mobile/.dart_tool/
+mobile/.packages
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/local.properties
+mobile/android/key.properties
+mobile/android/*.jks
+mobile/android/*.keystore
+*.apk
+*.aab
+
+# Capacitor
+capacitor/android/
+capacitor/ios/
+capacitor/node_modules/
+node_modules/

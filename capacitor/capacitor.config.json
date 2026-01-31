@@ -2,17 +2,13 @@
   "appId": "com.hairstyle.app",
   "appName": "Hair Style Simulator",
   "webDir": "www",
-  "server": {
-    "url": "https://b0wgssw4g80gs40kk8gk8sc8.77.42.68.224.sslip.io",
-    "cleartext": true
-  },
   "plugins": {
     "Camera": {
       "presentationStyle": "fullScreen"
     }
   },
   "android": {
-    "allowMixedContent": true
+    "allowMixedContent": false
   },
   "ios": {
     "contentInset": "automatic"
