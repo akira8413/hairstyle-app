@@ -4,8 +4,23 @@ import 'package:http/http.dart' as http;
 import '../models/hairstyle.dart';
 
 class ApiService {
-  // Change this to your backend URL
-  static const String baseUrl = 'http://localhost:8080';
+  /// API base URL - configurable via build-time environment variable.
+  /// Usage: flutter run --dart-define=API_URL=https://your-api.example.com
+  /// Defaults to http://localhost:8080 for local development only.
+  static const String baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://localhost:8080',
+  );
+
+  /// API key for authenticating requests to the backend.
+  /// Usage: flutter run --dart-define=API_KEY=your-secret-key
+  static const String _apiKey =
+      String.fromEnvironment('API_KEY', defaultValue: '');
+
+  static Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        if (_apiKey.isNotEmpty) 'X-API-Key': _apiKey,
+      };
 
   /// Analyze face and get hairstyle suggestions
   static Future<AnalysisResult> analyzeHairstyle(File imageFile) async {
@@ -14,7 +29,7 @@ class ApiService {
 
     final response = await http.post(
       Uri.parse('$baseUrl/api/v1/vision/hairstyle'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _headers,
       body: jsonEncode({
         'face': 'data:image/jpeg;base64,$base64Image',
       }),
@@ -57,7 +72,7 @@ class ApiService {
 
     final response = await http.post(
       Uri.parse('$baseUrl/api/v1/vision/hairstyle/generate'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _headers,
       body: jsonEncode(body),
     );
 
@@ -82,7 +97,7 @@ class ApiService {
 
     final response = await http.post(
       Uri.parse('$baseUrl/api/v1/vision/hairstyle/adjust'),
-      headers: {'Content-Type': 'application/json'},
+      headers: _headers,
       body: jsonEncode({
         'face': 'data:image/jpeg;base64,$faceBase64',
         'currentImage': currentImageBase64,
@@ -105,7 +120,10 @@ class ApiService {
   /// Health check
   static Future<bool> healthCheck() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/health'));
+      final response = await http.get(
+        Uri.parse('$baseUrl/health'),
+        headers: _headers,
+      );
       return response.statusCode == 200;
     } catch (e) {
       return false;

@@ -12,7 +12,10 @@ import os
 import json
 import base64
 from datetime import datetime, timedelta
+from functools import wraps
+from collections import defaultdict
 import re
+import time
 from PIL import Image
 import io
 import hashlib
@@ -23,7 +26,21 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
 
 app = Flask(__name__, static_folder=FRONTEND_DIR)
-CORS(app)
+
+# CORS設定 - 許可するオリジンを環境変数で制御
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', '*').split(',')
+CORS(app, origins=ALLOWED_ORIGINS)
+
+# API認証キー（環境変数で設定）
+API_KEY = os.environ.get('API_KEY', '')
+
+# 画像アップロード制限 (10MB)
+MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+
+# レート制限設定
+RATE_LIMIT_WINDOW = 60  # 秒
+RATE_LIMIT_MAX_REQUESTS = int(os.environ.get('RATE_LIMIT_MAX', '30'))
+rate_limit_store = defaultdict(list)
 
 # サービスアカウントキー（JSON）を環境変数から読み込み
 GCP_CREDENTIALS_JSON = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
@@ -62,6 +79,61 @@ cache = {}
 CACHE_TTL_HOURS = 24
 
 
+# --- ミドルウェア ---
+
+def require_api_key(f):
+    """APIキー認証デコレータ"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not API_KEY:
+            # API_KEYが未設定の場合は認証をスキップ（開発環境用）
+            return f(*args, **kwargs)
+
+        provided_key = request.headers.get('X-API-Key', '')
+        if provided_key != API_KEY:
+            return jsonify({'error': '認証エラー', 'message': 'APIキーが無効です'}), 401
+
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def rate_limit(f):
+    """レート制限デコレータ"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        now = time.time()
+
+        # 期限切れのエントリを削除
+        rate_limit_store[client_ip] = [
+            t for t in rate_limit_store[client_ip]
+            if now - t < RATE_LIMIT_WINDOW
+        ]
+
+        if len(rate_limit_store[client_ip]) >= RATE_LIMIT_MAX_REQUESTS:
+            return jsonify({
+                'error': 'レート制限超過',
+                'message': f'{RATE_LIMIT_WINDOW}秒間に{RATE_LIMIT_MAX_REQUESTS}回までリクエストできます'
+            }), 429
+
+        rate_limit_store[client_ip].append(now)
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def validate_image_size(image_data: str) -> bool:
+    """Base64画像データのサイズを検証"""
+    if 'base64,' in image_data:
+        image_data = image_data.split('base64,')[1]
+    try:
+        decoded = base64.b64decode(image_data)
+        return len(decoded) <= MAX_IMAGE_SIZE_BYTES
+    except Exception:
+        return False
+
+
+# --- ユーティリティ ---
+
 def generate_image_hash(image_data: str) -> str:
     """画像データからSHA256ハッシュを生成"""
     if 'base64,' in image_data:
@@ -94,6 +166,8 @@ def set_cached_result(image_hash: str, result_id: str, result: dict):
     }
 
 
+# --- ルート ---
+
 @app.route('/')
 def index():
     """トップページを表示"""
@@ -107,6 +181,8 @@ def serve_static(path):
 
 
 @app.route('/api/v1/vision/hairstyle', methods=['POST'])
+@require_api_key
+@rate_limit
 def analyze_hairstyle():
     """
     顔写真から似合う髪型を5つ提案
@@ -124,6 +200,10 @@ def analyze_hairstyle():
             return jsonify({'error': '顔写真が必要です'}), 400
 
         face_data = data['face']
+
+        # 画像サイズ検証
+        if not validate_image_size(face_data):
+            return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
 
         # ハッシュを生成
         face_hash = generate_image_hash(face_data)
@@ -204,6 +284,8 @@ JSON形式のみ返してください。"""
 
 
 @app.route('/api/v1/vision/hairstyle/generate', methods=['POST'])
+@require_api_key
+@rate_limit
 def generate_hairstyle():
     """
     顔写真とプリセット/参照画像から、髪型を変更した画像を生成
@@ -228,6 +310,13 @@ def generate_hairstyle():
         preset = data.get('preset')
         preset_name = data.get('presetName')
         gender = data.get('gender', 'mens')
+
+        # 画像サイズ検証
+        if not validate_image_size(face_data):
+            return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
+
+        if hairstyle_data and not validate_image_size(hairstyle_data):
+            return jsonify({'error': f'参照画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
 
         if not preset and not hairstyle_data:
             return jsonify({'error': '髪型を選択するか参照画像をアップロードしてください'}), 400
@@ -334,6 +423,8 @@ def generate_hairstyle():
 
 
 @app.route('/api/v1/vision/hairstyle/adjust', methods=['POST'])
+@require_api_key
+@rate_limit
 def adjust_hairstyle():
     """
     生成済み画像の髪型を調整して再生成
@@ -359,6 +450,13 @@ def adjust_hairstyle():
         current_image_data = data.get('currentImage')
         preset = data.get('preset', '')
         adjustments = data.get('adjustments', {})
+
+        # 画像サイズ検証
+        if not validate_image_size(face_data):
+            return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
+
+        if current_image_data and not validate_image_size(current_image_data):
+            return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
 
         if not GCP_PROJECT_ID:
             return jsonify({
@@ -486,6 +584,7 @@ HAIRSTYLE_PRESETS = {
 
 
 @app.route('/api/v1/admin/generate-preset/<gender>/<preset_id>', methods=['POST'])
+@require_api_key
 def generate_preset_image(gender, preset_id):
     """
     プリセットサムネイル画像を生成（管理用）
@@ -589,6 +688,7 @@ Style reference: Beauty app preset thumbnails like BeautyPlus or SNOW app"""
 
 
 @app.route('/api/v1/admin/generate-all-presets', methods=['POST'])
+@require_api_key
 def generate_all_preset_images():
     """
     全プリセットサムネイル画像を一括生成（管理用）
@@ -612,11 +712,16 @@ def generate_all_preset_images():
 
 
 if __name__ == '__main__':
-    port = 8080  # Fixed port for Coolify
+    port = int(os.environ.get('PORT', 8080))
+    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     print(f"サーバーを起動しています: http://localhost:{port}")
     if GCP_PROJECT_ID:
         print(f"Vertex AI設定済み: project={GCP_PROJECT_ID}, location={GCP_LOCATION}")
     else:
         print("警告: GCP_PROJECT_IDが未設定です")
+    if API_KEY:
+        print("API認証: 有効")
+    else:
+        print("API認証: 無効（開発モード）")
 
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=debug)
