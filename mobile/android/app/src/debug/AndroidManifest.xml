@@ -1,4 +1,0 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Flutter debug/profile builds need network access for DevTools -->
-    <uses-permission android:name="android.permission.INTERNET" />
-</manifest>

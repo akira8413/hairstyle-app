@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プリセット画像生成 - 管理画面</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { margin-bottom: 20px; font-size: 24px; }
+        h2 { margin: 20px 0 10px; font-size: 18px; color: #666; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 12px;
+        }
+        .preset-card {
+            background: white;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .preset-card img {
+            width: 72px;
+            height: 72px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #eee;
+        }
+        .preset-card .placeholder {
+            width: 72px;
+            height: 72px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #e0e0e0, #f5f5f5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 12px;
+            margin: 0 auto;
+        }
+        .preset-card .name {
+            font-size: 12px;
+            margin-top: 6px;
+            color: #333;
+        }
+        .preset-card button {
+            margin-top: 8px;
+            padding: 6px 12px;
+            font-size: 11px;
+            border: none;
+            border-radius: 6px;
+            background: #FF6B8A;
+            color: white;
+            cursor: pointer;
+        }
+        .preset-card button:hover { background: #e55a78; }
+        .preset-card button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .preset-card .status {
+            font-size: 10px;
+            margin-top: 4px;
+            color: #666;
+        }
+        .preset-card.generating { opacity: 0.7; }
+        .preset-card.done .placeholder { background: #4CAF50; color: white; }
+        .actions {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        .actions button {
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .actions .primary {
+            background: linear-gradient(135deg, #FF6B8A, #FF8E53);
+            color: white;
+        }
+        .actions .secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log .error { color: #f66; }
+        .log .success { color: #6f6; }
+    </style>
+</head>
+<body>
+    <h1>🎨 プリセット画像生成</h1>
+
+    <div class="actions">
+        <button class="primary" onclick="generateAll()">全て生成</button>
+        <button class="secondary" onclick="location.reload()">更新</button>
+    </div>
+
+    <h2>👨 メンズ</h2>
+    <div class="grid" id="mensGrid"></div>
+
+    <h2>👩 レディース</h2>
+    <div class="grid" id="ladiesGrid"></div>
+
+    <div class="log" id="log"></div>
+
+    <script>
+        const PRESETS = {
+            mens: [
+                { id: 'none', name: 'なし' },
+                { id: 'short', name: 'ショート' },
+                { id: 'twoblock', name: 'ツーブロック' },
+                { id: 'mash', name: 'マッシュ' },
+                { id: 'center', name: 'センターパート' },
+                { id: 'wolf', name: 'ウルフ' },
+                { id: 'perm', name: 'パーマ' },
+                { id: 'long', name: 'ロング' },
+            ],
+            ladies: [
+                { id: 'none', name: 'なし' },
+                { id: 'short', name: 'ショート' },
+                { id: 'bob', name: 'ボブ' },
+                { id: 'lob', name: 'ロブ' },
+                { id: 'medium', name: 'ミディアム' },
+                { id: 'layer', name: 'レイヤー' },
+                { id: 'long', name: 'ロング' },
+                { id: 'wave', name: 'ウェーブ' },
+            ]
+        };
+
+        function log(msg, type = 'info') {
+            const logEl = document.getElementById('log');
+            const line = document.createElement('div');
+            line.className = type;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logEl.appendChild(line);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function renderGrid(gender, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            PRESETS[gender].forEach(preset => {
+                const card = document.createElement('div');
+                card.className = 'preset-card';
+                card.id = `card-${gender}-${preset.id}`;
+
+                const imgPath = `/images/presets/${gender}/${preset.id}.png`;
+
+                card.innerHTML = `
+                    <div class="placeholder" id="thumb-${gender}-${preset.id}">
+                        <img src="${imgPath}" alt="${preset.name}"
+                             onerror="this.parentElement.innerHTML='未生成'">
+                    </div>
+                    <div class="name">${preset.name}</div>
+                    <button onclick="generate('${gender}', '${preset.id}')"
+                            id="btn-${gender}-${preset.id}">
+                        生成
+                    </button>
+                    <div class="status" id="status-${gender}-${preset.id}"></div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        async function generate(gender, presetId) {
+            const card = document.getElementById(`card-${gender}-${presetId}`);
+            const btn = document.getElementById(`btn-${gender}-${presetId}`);
+            const status = document.getElementById(`status-${gender}-${presetId}`);
+            const thumb = document.getElementById(`thumb-${gender}-${presetId}`);
+
+            card.classList.add('generating');
+            btn.disabled = true;
+            status.textContent = '生成中...';
+            log(`${gender}/${presetId} 生成開始...`);
+
+            try {
+                const response = await fetch(`/api/v1/admin/generate-preset/${gender}/${presetId}`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed');
+                }
+
+                // 画像を更新
+                thumb.innerHTML = `<img src="${data.image}" alt="${presetId}">`;
+                card.classList.add('done');
+                status.textContent = '完了';
+                log(`${gender}/${presetId} 生成完了!`, 'success');
+
+            } catch (error) {
+                status.textContent = 'エラー';
+                log(`${gender}/${presetId} エラー: ${error.message}`, 'error');
+            } finally {
+                card.classList.remove('generating');
+                btn.disabled = false;
+            }
+        }
+
+        async function generateAll() {
+            log('全プリセット生成開始...');
+
+            for (const gender of ['mens', 'ladies']) {
+                for (const preset of PRESETS[gender]) {
+                    if (preset.id === 'none') continue;
+                    await generate(gender, preset.id);
+                    // API制限を避けるため少し待機
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+
+            log('全プリセット生成完了!', 'success');
+        }
+
+        // 初期化
+        renderGrid('mens', 'mensGrid');
+        renderGrid('ladies', 'ladiesGrid');
+        log('管理画面を読み込みました');
+    </script>
+</body>
+</html>

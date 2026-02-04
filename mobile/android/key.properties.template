@@ -1,7 +1,0 @@
-# Release signing configuration
-# Copy this file to key.properties and fill in your actual values.
-# DO NOT commit key.properties to version control.
-storePassword=your-store-password
-keyPassword=your-key-password
-keyAlias=hairstyle_key
-storeFile=/path/to/hairstyle-release.jks

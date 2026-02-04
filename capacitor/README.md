@@ -1,5 +1,7 @@
 # Hair Style Simulator - Mobile App (Capacitor)
 
+✅ **セットアップ完了済み** - Android/iOS プラットフォーム追加済み
+
 WebアプリをiOS/Androidアプリとしてビルドします。
 
 ## 必要な環境
@@ -8,27 +10,34 @@ WebアプリをiOS/Androidアプリとしてビルドします。
 - Android Studio (Android向け)
 - Xcode (iOS向け、Macのみ)
 
-## セットアップ
+## 🔄 今後のワークフロー（デザイン変更時）
+
+```bash
+# 1. frontend/ フォルダでHTML/CSS/JSを編集
+cd ../frontend
+# ... ファイルを編集 ...
+
+# 2. Capacitorに同期（これだけ！）
+cd ../capacitor
+npm run cap:sync
+
+# Web版、iOS版、Android版すべてに自動反映されます
+```
+
+## 📱 初回セットアップ（完了済み）
 
 ```bash
 cd capacitor
 
-# 依存関係インストール
+# 依存関係インストール ✅
 npm install
 
-# wwwフォルダを作成してWebアプリをコピー
-mkdir -p www
-npm run build
+# プラットフォーム追加 ✅
+npx cap add android
+npx cap add ios
 
-# Capacitor初期化（初回のみ）
-npm run cap:init
-
-# プラットフォーム追加
-npm run cap:add:android  # Android
-npm run cap:add:ios      # iOS (Macのみ)
-
-# 同期
-npm run cap:sync
+# 同期 ✅
+npx cap sync
 ```
 
 ## ビルド & 実行
