@@ -60,9 +60,32 @@ const LENGTH_MAP = {
 const COLOR_MAP = {
     same: '',
     black: 'jet black hair color',
+    darkBrown: 'dark brown hair color',
     brown: 'brown hair color',
-    ash: 'ash gray hair color'
+    lightBrown: 'light brown hair color',
+    ash: 'ash gray hair color',
+    blonde: 'blonde hair color',
+    red: 'red hair color',
+    pink: 'pink hair color',
+    purple: 'purple hair color',
+    blue: 'blue hair color',
+    silver: 'silver gray hair color'
 };
+
+const HAIR_COLORS = [
+    { id: 'none', name: 'なし', color: 'linear-gradient(135deg, #2a2f3e, #1a1f2e)', prompt: '' },
+    { id: 'black', name: '黒髪', color: '#1a1a1a', prompt: 'jet black hair color' },
+    { id: 'darkBrown', name: 'ダークブラウン', color: '#3d2817', prompt: 'dark brown hair color' },
+    { id: 'brown', name: 'ブラウン', color: '#6d4c3d', prompt: 'brown hair color' },
+    { id: 'lightBrown', name: 'ライトブラウン', color: '#a67c52', prompt: 'light brown hair color' },
+    { id: 'ash', name: 'アッシュ', color: 'linear-gradient(135deg, #8b9194, #b8bfc2)', prompt: 'ash gray hair color' },
+    { id: 'blonde', name: 'ブロンド', color: 'linear-gradient(135deg, #f4e4c1, #e6d5a8)', prompt: 'blonde hair color' },
+    { id: 'red', name: 'レッド', color: 'linear-gradient(135deg, #a0353a, #c9484d)', prompt: 'red hair color' },
+    { id: 'pink', name: 'ピンク', color: 'linear-gradient(135deg, #ffc0cb, #ff69b4)', prompt: 'pink hair color' },
+    { id: 'purple', name: 'パープル', color: 'linear-gradient(135deg, #8b7d99, #b19cd9)', prompt: 'purple hair color' },
+    { id: 'blue', name: 'ブルー', color: 'linear-gradient(135deg, #4a6fa5, #6b8cce)', prompt: 'blue hair color' },
+    { id: 'silver', name: 'シルバー', color: 'linear-gradient(135deg, #c0c0c0, #e8e8e8)', prompt: 'silver gray hair color' }
+];
 
 // ===== DOM Elements =====
 const inputSection = document.getElementById('inputSection');
@@ -75,10 +98,11 @@ const photoInput = document.getElementById('photoInput');
 const photoActions = document.getElementById('photoActions');
 const retakeBtn = document.getElementById('retakeBtn');
 
-const modeTabs = document.querySelectorAll('.mode-tab');
 const genderTabs = document.querySelectorAll('.gender-tab');
 const presetRow = document.getElementById('presetRow');
+const colorRow = document.getElementById('colorRow');
 const generateBtn = document.getElementById('generateBtn');
+const analyzeBtn = document.getElementById('analyzeBtn');
 
 const resultImage = document.getElementById('resultImage');
 const backBtn = document.getElementById('backBtn');
@@ -93,10 +117,12 @@ let photoData = null;
 let generatedData = null;
 let currentGender = 'mens';
 let selectedPreset = null;
+let selectedColor = null;
 
 // ===== Initialize =====
 document.addEventListener('DOMContentLoaded', () => {
     renderPresets(currentGender);
+    renderColors();
 });
 
 // ===== Event Listeners =====
@@ -109,14 +135,6 @@ photoInput.addEventListener('change', (e) => {
 
 retakeBtn.addEventListener('click', () => {
     photoInput.click();
-});
-
-// Mode tabs
-modeTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        modeTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-    });
 });
 
 // Gender tabs
@@ -219,6 +237,52 @@ function selectPreset(preset, element) {
     updateGenerateButton();
 }
 
+function renderColors() {
+    colorRow.innerHTML = '';
+
+    HAIR_COLORS.forEach(color => {
+        const item = document.createElement('div');
+        item.className = 'color-item';
+        item.dataset.colorId = color.id;
+
+        const swatch = document.createElement('div');
+        swatch.className = 'color-swatch';
+        swatch.style.background = color.color;
+
+        if (color.id === 'none') {
+            swatch.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:24px;height:24px;">
+                <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
+                <path stroke-linecap="round" stroke-width="1.5" d="M6 6l12 12"/>
+            </svg>`;
+            swatch.style.display = 'flex';
+            swatch.style.alignItems = 'center';
+            swatch.style.justifyContent = 'center';
+        }
+
+        const name = document.createElement('div');
+        name.className = 'color-name';
+        name.textContent = color.name;
+
+        item.appendChild(swatch);
+        item.appendChild(name);
+        item.addEventListener('click', () => selectColor(color, item));
+        colorRow.appendChild(item);
+    });
+}
+
+function selectColor(color, element) {
+    document.querySelectorAll('.color-item').forEach(el => el.classList.remove('selected'));
+
+    if (color.id === 'none') {
+        selectedColor = null;
+    } else {
+        selectedColor = color;
+        element.classList.add('selected');
+    }
+
+    updateGenerateButton();
+}
+
 function loadPhoto(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -257,6 +321,7 @@ function loadPhoto(file) {
 
 function updateGenerateButton() {
     generateBtn.disabled = !(photoData && selectedPreset);
+    analyzeBtn.disabled = !photoData;
 }
 
 async function generate() {
@@ -266,13 +331,19 @@ async function generate() {
     loadingSection.classList.remove('hidden');
 
     try {
+        // プリセットのプロンプトに髪色を追加
+        let fullPrompt = selectedPreset.prompt;
+        if (selectedColor && selectedColor.prompt) {
+            fullPrompt = `${selectedPreset.prompt}, ${selectedColor.prompt}`;
+        }
+
         const response = await fetch(`${API_BASE_URL}/api/v1/vision/hairstyle/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 face: photoData,
-                preset: selectedPreset.prompt,
-                presetName: selectedPreset.name,
+                preset: fullPrompt,
+                presetName: `${selectedPreset.name}${selectedColor ? ' (' + selectedColor.name + ')' : ''}`,
                 gender: currentGender
             })
         });

@@ -8,12 +8,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --color-primary: #ffffff;
-            --color-secondary: #a0a0a0;
-            --color-tertiary: #666666;
-            --color-background: #0f1419;
-            --color-surface: #1a1f2e;
-            --color-border: #2a2f3e;
+            --color-primary: #1a1a1a;
+            --color-secondary: #666666;
+            --color-tertiary: #999999;
+            --color-background: #ffffff;
+            --color-surface: #f5f5f5;
+            --color-border: #e5e5e5;
             --color-accent: #FF6B8A;
             --color-accent-light: #FFF0F3;
             --spacing-xs: 4px;
@@ -49,45 +49,16 @@
 
         /* Header */
         .app-header {
-            padding: var(--spacing-lg) var(--spacing-md);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-sm);
-            background: var(--color-background);
-        }
-
-        .app-logo {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #a855f7, #ec4899);
-            border-radius: 50%;
+            padding: var(--spacing-md);
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin-bottom: var(--spacing-xs);
-        }
-
-        .app-logo svg {
-            width: 28px;
-            height: 28px;
-            color: white;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--color-border);
         }
 
         .app-title {
-            font-size: 28px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #a855f7, #ec4899, #06b6d4);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .app-subtitle {
-            font-size: 14px;
-            color: var(--color-secondary);
-            font-weight: 400;
+            font-size: 18px;
+            font-weight: 600;
         }
 
         /* Photo Area */
@@ -97,78 +68,40 @@
             align-items: center;
             justify-content: center;
             padding: var(--spacing-lg);
-            background: var(--color-background);
-            min-height: 400px;
+            background: var(--color-surface);
+            min-height: 350px;
             position: relative;
         }
 
         .photo-placeholder {
-            width: 90%;
-            max-width: 400px;
-            height: 400px;
-            border: 3px dashed var(--color-border);
+            width: 280px;
+            height: 350px;
+            border: 2px dashed var(--color-border);
             border-radius: var(--radius-lg);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.3s;
-            background: rgba(26, 31, 46, 0.5);
-            gap: var(--spacing-md);
+            transition: all 0.2s;
+            background: var(--color-background);
         }
 
         .photo-placeholder:hover {
-            border-color: #a855f7;
-            background: rgba(168, 85, 247, 0.1);
+            border-color: var(--color-accent);
+            background: var(--color-accent-light);
         }
 
-        .photo-camera-icon {
-            width: 80px;
-            height: 80px;
-            background: rgba(168, 85, 247, 0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: var(--spacing-sm);
+        .photo-placeholder svg {
+            width: 48px;
+            height: 48px;
+            color: var(--color-tertiary);
+            margin-bottom: var(--spacing-md);
         }
 
-        .photo-camera-icon svg {
-            width: 40px;
-            height: 40px;
-            color: #a855f7;
-        }
-
-        .photo-placeholder-title {
-            color: var(--color-primary);
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .photo-placeholder-subtitle {
+        .photo-placeholder span {
             color: var(--color-secondary);
             font-size: 14px;
-        }
-
-        .photo-upload-btn {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-            padding: var(--spacing-sm) var(--spacing-lg);
-            background: rgba(168, 85, 247, 0.2);
-            color: #a855f7;
-            border: 1px solid rgba(168, 85, 247, 0.3);
-            border-radius: var(--radius-full);
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            margin-top: var(--spacing-sm);
-        }
-
-        .photo-upload-btn svg {
-            width: 18px;
-            height: 18px;
         }
 
         .photo-preview {
@@ -198,7 +131,33 @@
         /* Control Panel */
         .control-panel {
             background: var(--color-background);
+            border-top: 1px solid var(--color-border);
             padding: var(--spacing-md) 0;
+        }
+
+        /* Mode Tabs */
+        .mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            padding: 0 var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .mode-tab {
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border: none;
+            background: var(--color-surface);
+            border-radius: var(--radius-full);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-tab.active {
+            background: var(--color-primary);
+            color: white;
         }
 
         /* Gender Tabs */
@@ -221,8 +180,8 @@
         }
 
         .gender-tab.active {
-            color: #a855f7;
-            border-bottom-color: #a855f7;
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
         }
 
         /* Preset Scroll */
@@ -256,7 +215,7 @@
             height: 72px;
             border-radius: var(--radius-md);
             background: var(--color-surface);
-            border: 2px solid var(--color-border);
+            border: 2px solid transparent;
             overflow: hidden;
             margin-bottom: var(--spacing-xs);
             transition: all 0.2s;
@@ -278,8 +237,8 @@
         }
 
         .preset-item.selected .preset-thumb {
-            border-color: #a855f7;
-            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.3);
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 2px var(--color-accent-light);
         }
 
         .preset-label {
@@ -305,62 +264,6 @@
             position: relative;
         }
 
-        /* Hair Color Selection */
-        .color-selection {
-            padding: var(--spacing-md);
-            padding-bottom: 0;
-        }
-
-        .color-label {
-            font-size: 13px;
-            color: var(--color-secondary);
-            margin-bottom: var(--spacing-sm);
-            font-weight: 500;
-        }
-
-        .color-scroll {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-        }
-
-        .color-scroll::-webkit-scrollbar {
-            display: none;
-        }
-
-        .color-row {
-            display: flex;
-            gap: var(--spacing-sm);
-            padding-bottom: var(--spacing-sm);
-        }
-
-        .color-item {
-            flex-shrink: 0;
-            text-align: center;
-            cursor: pointer;
-        }
-
-        .color-swatch {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: 3px solid transparent;
-            transition: all 0.2s;
-            margin-bottom: var(--spacing-xs);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-
-        .color-item.selected .color-swatch {
-            border-color: #a855f7;
-            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.3);
-        }
-
-        .color-name {
-            font-size: 10px;
-            color: var(--color-secondary);
-            white-space: nowrap;
-        }
-
         /* Generate Button */
         .generate-section {
             padding: var(--spacing-md);
@@ -369,20 +272,15 @@
 
         .generate-btn {
             width: 100%;
-            padding: 18px var(--spacing-md);
-            background: linear-gradient(90deg, #a855f7 0%, #ec4899 50%, #06b6d4 100%);
+            padding: var(--spacing-md);
+            background: linear-gradient(135deg, #FF6B8A 0%, #FF8E53 100%);
             color: white;
             border: none;
-            border-radius: var(--radius-full);
+            border-radius: var(--radius-md);
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-sm);
-            box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+            transition: all 0.2s;
         }
 
         .generate-btn:disabled {
@@ -391,20 +289,15 @@
         }
 
         .generate-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(168, 85, 247, 0.6);
-        }
-
-        .generate-btn svg {
-            width: 20px;
-            height: 20px;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 107, 138, 0.4);
         }
 
         /* Loading Overlay */
         .loading-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(15, 20, 25, 0.98);
+            background: rgba(255,255,255,0.95);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -416,7 +309,7 @@
             width: 48px;
             height: 48px;
             border: 3px solid var(--color-border);
-            border-top-color: #a855f7;
+            border-top-color: var(--color-accent);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -448,7 +341,7 @@
             align-items: center;
             justify-content: center;
             padding: var(--spacing-lg);
-            background: var(--color-background);
+            background: var(--color-surface);
         }
 
         .result-image {
@@ -460,6 +353,7 @@
         .result-controls {
             padding: var(--spacing-md);
             background: var(--color-background);
+            border-top: 1px solid var(--color-border);
         }
 
         .result-tabs {
@@ -472,17 +366,16 @@
             flex: 1;
             padding: var(--spacing-sm);
             border: 1px solid var(--color-border);
-            background: var(--color-surface);
-            color: var(--color-secondary);
+            background: var(--color-background);
             border-radius: var(--radius-sm);
             font-size: 13px;
             cursor: pointer;
         }
 
         .result-tab.active {
-            background: rgba(168, 85, 247, 0.2);
-            color: #a855f7;
-            border-color: #a855f7;
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
         }
 
         .adjust-options {
@@ -497,8 +390,7 @@
             border: 1px solid var(--color-border);
             border-radius: var(--radius-sm);
             font-size: 13px;
-            background: var(--color-surface);
-            color: var(--color-primary);
+            background: var(--color-background);
         }
 
         .result-actions {
@@ -517,58 +409,16 @@
         }
 
         .result-btn-primary {
-            background: linear-gradient(90deg, #a855f7, #ec4899);
+            background: var(--color-primary);
             color: white;
         }
 
         .result-btn-secondary {
             background: var(--color-surface);
             color: var(--color-primary);
-            border: 1px solid var(--color-border);
         }
 
         .hidden { display: none !important; }
-
-        /* Secondary Action */
-        .secondary-action {
-            padding: var(--spacing-md);
-            text-align: center;
-        }
-
-        .secondary-btn {
-            width: 100%;
-            padding: var(--spacing-md);
-            background: transparent;
-            color: var(--color-secondary);
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-full);
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-sm);
-            transition: all 0.2s;
-        }
-
-        .secondary-btn:hover {
-            border-color: #a855f7;
-            color: #a855f7;
-        }
-
-        .secondary-btn svg {
-            width: 18px;
-            height: 18px;
-        }
-
-        .app-footer {
-            padding: var(--spacing-lg) var(--spacing-md);
-            text-align: center;
-            color: var(--color-tertiary);
-            font-size: 12px;
-            border-top: 1px solid var(--color-border);
-        }
     </style>
 </head>
 <body>
@@ -576,32 +426,18 @@
         <!-- Input Section -->
         <div id="inputSection">
             <header class="app-header">
-                <div class="app-logo">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
-                    </svg>
-                </div>
-                <h1 class="app-title">Hair Style Simulator</h1>
-                <p class="app-subtitle">AIがあなたに似合う髪型を提案します</p>
+                <span></span>
+                <span class="app-title">Hair Style</span>
+                <span></span>
             </header>
 
             <!-- Photo Area -->
             <div class="photo-area">
                 <div id="photoPlaceholder" class="photo-placeholder">
-                    <div class="photo-camera-icon">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                        </svg>
-                    </div>
-                    <div class="photo-placeholder-title">顔写真を選択</div>
-                    <div class="photo-placeholder-subtitle">タップして写真を撮影またはアップロード</div>
-                    <button class="photo-upload-btn">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-                        </svg>
-                        ファイルを選択
-                    </button>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15"/>
+                    </svg>
+                    <span>タップして写真を選択</span>
                 </div>
                 <img id="photoPreview" class="photo-preview hidden" alt="写真">
                 <input type="file" id="photoInput" accept="image/*" style="display:none">
@@ -612,6 +448,12 @@
 
             <!-- Control Panel -->
             <div class="control-panel">
+                <!-- Mode Tabs -->
+                <div class="mode-tabs">
+                    <button class="mode-tab active" data-mode="preset">プリセット</button>
+                    <button class="mode-tab" data-mode="custom">カスタム</button>
+                </div>
+
                 <!-- Gender Tabs -->
                 <div class="gender-tabs">
                     <button class="gender-tab active" data-gender="mens">メンズ</button>
@@ -623,36 +465,11 @@
                     <div id="presetRow" class="preset-row"></div>
                 </div>
 
-                <!-- Hair Color Selection -->
-                <div class="color-selection">
-                    <div class="color-label">髪色を選ぶ</div>
-                    <div class="color-scroll">
-                        <div id="colorRow" class="color-row"></div>
-                    </div>
-                </div>
-
                 <!-- Generate Button -->
                 <div class="generate-section">
                     <button id="generateBtn" class="generate-btn" disabled>
-                        髪型を選ぶ
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
+                        髪型を変える
                     </button>
-                </div>
-
-                <!-- Secondary Action -->
-                <div class="secondary-action">
-                    <button class="secondary-btn" id="analyzeBtn" disabled>
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                        </svg>
-                        顔分析でおすすめを見る
-                    </button>
-                </div>
-
-                <div class="app-footer">
-                    正面を向いた明るい顔写真を使用すると、より正確な結果が得られます
                 </div>
             </div>
         </div>
@@ -686,16 +503,8 @@
                     <select id="adjustColor" class="adjust-select">
                         <option value="same">色: そのまま</option>
                         <option value="black">黒髪</option>
-                        <option value="darkBrown">ダークブラウン</option>
                         <option value="brown">ブラウン</option>
-                        <option value="lightBrown">ライトブラウン</option>
                         <option value="ash">アッシュ</option>
-                        <option value="blonde">ブロンド</option>
-                        <option value="red">レッド</option>
-                        <option value="pink">ピンク</option>
-                        <option value="purple">パープル</option>
-                        <option value="blue">ブルー</option>
-                        <option value="silver">シルバー</option>
                     </select>
                 </div>
                 <div class="result-actions">
