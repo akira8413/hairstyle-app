@@ -1,9 +1,7 @@
 // ===== API Configuration =====
 // 開発環境: 空文字列（同じドメイン）
 // 本番環境: CoolifyのURL
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? ''
-  : 'https://your-coolify-url.com';
+const API_BASE_URL = '';
 
 // ===== Icon System (SVG Icons) =====
 const ICONS = {
