@@ -1,80 +1,98 @@
 # Hair Style Simulator - ローンチ TODO チェックリスト
 
 ## 戦略: Web先行ローンチ 🌐
-- クローズドテスト不要、即公開可能
-- Stripe決済（手数料3.6% vs ストア30%）
+- Googleログイン + クレジット制 + Stripe課金
+- Google AI Studio（無料API）でコスト削減
 - 反応を見てからアプリ化を検討
 
 ## 現状サマリ
-- バックエンド (Flask + Gemini 2.0/2.5 Flash): ✅完成
+- バックエンド (Flask + Gemini): ✅完成
 - フロントエンド (HTML/CSS/JS): ✅完成
-- モバイル (Capacitor WebView): ✅完成（後回し）
-- セキュリティ (API Key, レート制限, CORS): ✅完成
+- セキュリティ (レート制限, CORS): ✅完成
 - 法的文書 (プラポリ, 利用規約): ✅完成
-- **課金機能: ❌ 未実装**
-- **使用回数制限: ❌ 未実装**
+- Coolifyデプロイ: ✅完成
+- **Googleログイン + Supabase: ✅コード実装済み**
+- **クレジット制: ✅コード実装済み**
+- **Stripe課金: ✅コード実装済み**
+- **Google AI Studio切替: ✅コード実装済み**
 
 ---
 
-## Phase 1: バックエンドデプロイ（1日）
-- [ ] Coolifyでhairstyle-appをデプロイ（VPS: 162.43.45.208）
-- [ ] 環境変数設定（GCP_PROJECT_ID, GOOGLE_APPLICATION_CREDENTIALS_JSON）
-- [ ] ドメイン設定（例: hair.working-class-hero.net）
-- [ ] HTTPS有効化（Let's Encrypt）
-- [ ] ヘルスチェック確認（/health）
-- [ ] フロントエンドの API_BASE_URL を本番URLに変更
+## Phase 1: バックエンドデプロイ ✅完了
+- [x] Coolifyでhairstyle-appをデプロイ（VPS: 162.43.45.208）
+- [x] ヘルスチェック確認（/health）
+- [x] API_BASE_URL修正
 
-## Phase 2: 使用回数制限（1-2日）
-- [ ] IPベースの使用回数カウント実装（バックエンド側）
-- [ ] 無料枠の制限UI（「本日の残り回数: 2/3」表示）
-- [ ] 制限到達時のアップグレード誘導画面
-- [ ] 残回数APIエンドポイント（/api/usage）
+## Phase 2: 外部サービス設定 👈 あなたの作業
+- [ ] **Supabase設定**
+  - [ ] https://supabase.com でアカウント作成
+  - [ ] プロジェクト作成
+  - [ ] Google認証プロバイダー有効化（Authentication → Providers → Google）
+  - [ ] GCPでOAuth同意画面 & クライアントID作成
+  - [ ] SQLエディタで `supabase_schema.sql` を実行
+  - [ ] URL, Anon Key, Service Key, JWT Secretを控える
+- [ ] **Google AI Studio APIキー取得**
+  - [ ] https://aistudio.google.com/apikey でキー取得
+- [ ] **Stripeアカウント設定**
+  - [ ] https://stripe.com でアカウント作成
+  - [ ] テスト環境のAPIキー取得（sk_test_, pk_test_）
+  - [ ] Webhook設定（checkout.session.completed）
 
-## Phase 3: Stripe課金（2-3日）
-- [ ] Stripeアカウント設定（テスト環境）👈 あなたの作業
-- [ ] Stripe商品・プラン作成（テスト環境で）👈 あなたの作業
-- [ ] Stripe Checkout セッション作成API（バックエンド）
-- [ ] 決済成功後のリダイレクト & 処理
-- [ ] Stripe Webhook連携（支払い完了→プレミアム有効化）
-- [ ] サブスク状態の管理（IPベース or メールベース）
-- [ ] 課金済みユーザーの制限解除ロジック
-- [ ] 解約処理（Stripe Customer Portal連携）
-- [ ] 本番環境に切替 👈 あなたの作業
+## Phase 3: Coolify環境変数設定 👈 あなたの作業
+- [ ] Coolifyの環境変数に以下を追加:
+  ```
+  GEMINI_API_KEY=取得したAPIキー
+  SUPABASE_URL=https://xxxxx.supabase.co
+  SUPABASE_ANON_KEY=eyJ...
+  SUPABASE_SERVICE_KEY=eyJ...
+  SUPABASE_JWT_SECRET=your-jwt-secret
+  STRIPE_SECRET_KEY=sk_test_...
+  STRIPE_PUBLISHABLE_KEY=pk_test_...
+  STRIPE_WEBHOOK_SECRET=whsec_...
+  ```
+- [ ] Redeploy
 
-### 課金モデル
-| プラン | 料金 | 内容 |
-|--------|------|------|
-| 無料 | ¥0 | 1日3回まで生成 |
-| プレミアム月額 | ¥480/月 | 無制限生成 |
-| プレミアム年額 | ¥3,800/年 | 無制限生成（34%お得） |
-
-## Phase 4: Webローンチ（1日）
-- [ ] 全フロー通しテスト（無料枠→制限→課金→無制限）
+## Phase 4: 動作テスト
+- [ ] Googleログインテスト
+- [ ] 初回3クレジット付与確認
+- [ ] 髪型生成テスト（クレジット消費確認）
+- [ ] クレジット0で生成拒否 → 購入画面表示確認
+- [ ] Stripe決済テスト（テストカード: 4242 4242 4242 4242）
+- [ ] Webhook → クレジット付与確認
 - [ ] スマホブラウザでの動作確認
-- [ ] プライバシーポリシーURLをドメインに配置
-- [ ] OGP画像設定
-- [ ] 公開 🚀
 
-## Phase 5: 集客・改善
+## Phase 5: Webローンチ 🚀
+- [ ] ドメイン設定（hair.working-class-hero.net）
+- [ ] HTTPS有効化（Let's Encrypt）
+- [ ] Stripe本番切替 👈 あなたの作業
+- [ ] OGP画像設定
+- [ ] 公開
+
+## Phase 6: 集客・改善
 - [ ] X（Twitter）で告知
 - [ ] Google Analytics導入
-- [ ] ユーザー認証（Google Sign-In）→ IP制限からアカウント制限に移行
-- [ ] お気に入り髪型の保存機能
 - [ ] SEO対策（「髪型 シミュレーション AI」等）
+- [ ] お気に入り髪型の保存機能
 
-## Phase 6: アプリ化（Web版の反応を見てから）
+## Phase 7: アプリ化（Web版の反応を見てから）
 - [ ] Google Play Developerアカウント登録（$25）👈 あなたの作業
-- [ ] 署名済みAABファイルの生成
-- [ ] ストア素材準備（スクショ/アイコン/説明文）
 - [ ] クローズドテスト → 製品版公開
 - [ ] Apple Developer Program（$99/年）→ iOS版 👈 あなたの作業
 
 ---
 
-## 技術メモ
-- **API費用**: Gemini 2.5 Flash Image ≈ $0.04/画像 → 月1000回で約$40
-- **デプロイ先**: 既存VPS (162.43.45.208) Coolify
-- **レート制限**: 現在30回/分 → 無料枠は1日3回に変更
-- **決済**: Stripe Checkout（サーバー側でセッション作成 → リダイレクト）
-- **Stripe手数料**: 3.6%（¥480 → 手取り¥463）
-- **ユーザー識別**: 初期はIPベース → Phase 5でGoogle Sign-Inに移行
+### 課金モデル（クレジット制）
+| プラン | 料金 | クレジット | 単価 |
+|--------|------|-----------|------|
+| 無料 | ¥0 | 3（初回のみ） | - |
+| スターター | ¥300 | 10 | ¥30/回 |
+| スタンダード | ¥980 | 50 | ¥19.6/回 |
+| プレミアム | ¥2,980 | 200 | ¥14.9/回 |
+
+## 技術スタック
+- **API**: Google AI Studio（無料枠: 15リクエスト/分）
+- **認証**: Supabase Auth（Google OAuth）
+- **DB**: Supabase PostgreSQL
+- **決済**: Stripe Checkout
+- **デプロイ**: Coolify on VPS (162.43.45.208)
+- **URL**: http://trv3ofrl3xm2vyfpyr7to423.162.43.45.208.sslip.io

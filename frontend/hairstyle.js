@@ -339,7 +339,7 @@ async function generate() {
             fullPrompt = `${selectedPreset.prompt}, ${selectedColor.prompt}`;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/vision/hairstyle/generate`, {
+        const response = await authFetch(`${API_BASE_URL}/api/v1/vision/hairstyle/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -352,8 +352,20 @@ async function generate() {
 
         const data = await response.json();
 
+        if (data.needCredits) {
+            loadingSection.classList.add('hidden');
+            inputSection.classList.remove('hidden');
+            showPurchaseModal();
+            return;
+        }
+
         if (!response.ok || data.error) {
             throw new Error(data.error || 'Generation failed');
+        }
+
+        // クレジット残高を更新
+        if (data.credits !== undefined) {
+            updateCredits(data.credits);
         }
 
         generatedData = data.generatedImage;
@@ -385,7 +397,7 @@ async function regenerate() {
     loadingSection.classList.remove('hidden');
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/vision/hairstyle/adjust`, {
+        const response = await authFetch(`${API_BASE_URL}/api/v1/vision/hairstyle/adjust`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -400,8 +412,20 @@ async function regenerate() {
 
         const data = await response.json();
 
+        if (data.needCredits) {
+            loadingSection.classList.add('hidden');
+            resultSection.classList.remove('hidden');
+            showPurchaseModal();
+            return;
+        }
+
         if (!response.ok || data.error) {
             throw new Error(data.error || 'Regeneration failed');
+        }
+
+        // クレジット残高を更新
+        if (data.credits !== undefined) {
+            updateCredits(data.credits);
         }
 
         generatedData = data.generatedImage;

@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
 """
 AI髪型シミュレーター - バックエンドサーバー
-Vertex AI (Gemini) を使用して髪型シミュレーションを行います
+Google AI Studio (Gemini) + Supabase認証 + Stripe課金 + クレジット制
 """
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_cors import CORS
-import vertexai
-from vertexai.generative_models import GenerativeModel, Part
 import os
 import json
 import base64
+import re
+import time
+import io
+import hashlib
+import stripe
+import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 from collections import defaultdict
-import re
-import time
 from PIL import Image
-import io
-import hashlib
-import tempfile
 
 # Get the base directory (where Dockerfile copies files)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,72 +26,95 @@ FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
 
 app = Flask(__name__, static_folder=FRONTEND_DIR)
 
-# CORS設定 - 許可するオリジンを環境変数で制御
+# CORS設定
 ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', '*').split(',')
 CORS(app, origins=ALLOWED_ORIGINS)
-
-# API認証キー（環境変数で設定）
-API_KEY = os.environ.get('API_KEY', '')
 
 # 画像アップロード制限 (10MB)
 MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
 # レート制限設定
-RATE_LIMIT_WINDOW = 60  # 秒
+RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX_REQUESTS = int(os.environ.get('RATE_LIMIT_MAX', '30'))
 rate_limit_store = defaultdict(list)
 
-# サービスアカウントキー（JSON）を環境変数から読み込み
-GCP_CREDENTIALS_JSON = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
-GCP_PROJECT_ID = os.environ.get('GCP_PROJECT_ID')
-GCP_LOCATION = os.environ.get('GCP_LOCATION', 'us-central1')
+# --- Supabase設定 ---
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
+SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
+SUPABASE_JWT_SECRET = os.environ.get('SUPABASE_JWT_SECRET', '')
 
-# サービスアカウントキーがある場合、一時ファイルに書き出して認証
-if GCP_CREDENTIALS_JSON:
-    try:
-        # JSONをパースしてプロジェクトIDを取得
-        creds_dict = json.loads(GCP_CREDENTIALS_JSON)
-        if not GCP_PROJECT_ID:
-            GCP_PROJECT_ID = creds_dict.get('project_id')
+# --- Stripe設定 ---
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+stripe.api_key = STRIPE_SECRET_KEY
 
-        # 一時ファイルに書き出し
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            f.write(GCP_CREDENTIALS_JSON)
-            credentials_path = f.name
+# --- Google AI Studio設定（無料API）---
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
-        # 環境変数に設定
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
-        print(f"サービスアカウント認証設定完了: {credentials_path}")
-    except Exception as e:
-        print(f"認証設定エラー: {e}")
+# --- 課金プラン ---
+CREDIT_PLANS = {
+    'starter': {'credits': 10, 'price': 300, 'name': 'スターター (10回)'},
+    'standard': {'credits': 50, 'price': 980, 'name': 'スタンダード (50回)'},
+    'premium': {'credits': 200, 'price': 2980, 'name': 'プレミアム (200回)'},
+}
 
-# Vertex AIの初期化
-if GCP_PROJECT_ID:
-    vertexai.init(project=GCP_PROJECT_ID, location=GCP_LOCATION)
-    print(f"Vertex AI初期化完了: project={GCP_PROJECT_ID}, location={GCP_LOCATION}")
+# Supabaseクライアント（サービスキー使用）
+supabase_client = None
+if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+    from supabase import create_client
+    supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    print(f"Supabase接続完了: {SUPABASE_URL}")
 else:
-    print("警告: GCP_PROJECT_IDが設定されていません")
-    print("export GCP_PROJECT_ID='your-project-id' を実行してください")
+    print("警告: Supabase未設定（SUPABASE_URL, SUPABASE_SERVICE_KEY）")
 
-# キャッシュ管理（メモリ内辞書）
-cache = {}
-CACHE_TTL_HOURS = 24
+if GEMINI_API_KEY:
+    print("Google AI Studio API設定完了")
+else:
+    print("警告: GEMINI_API_KEY未設定")
+
+if STRIPE_SECRET_KEY:
+    print("Stripe設定完了")
+else:
+    print("警告: Stripe未設定")
 
 
-# --- ミドルウェア ---
+# --- 認証ミドルウェア ---
 
-def require_api_key(f):
-    """APIキー認証デコレータ"""
+def get_user_from_token(token):
+    """JWTトークンからユーザー情報を取得"""
+    if not SUPABASE_JWT_SECRET:
+        return None
+    try:
+        payload = jwt.decode(
+            token,
+            SUPABASE_JWT_SECRET,
+            algorithms=['HS256'],
+            audience='authenticated'
+        )
+        return payload.get('sub')  # user_id
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+
+def require_auth(f):
+    """認証必須デコレータ"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not API_KEY:
-            # API_KEYが未設定の場合は認証をスキップ（開発環境用）
-            return f(*args, **kwargs)
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'ログインが必要です'}), 401
 
-        provided_key = request.headers.get('X-API-Key', '')
-        if provided_key != API_KEY:
-            return jsonify({'error': '認証エラー', 'message': 'APIキーが無効です'}), 401
+        token = auth_header.split('Bearer ')[1]
+        user_id = get_user_from_token(token)
 
+        if not user_id:
+            return jsonify({'error': 'セッションが切れました。再ログインしてください'}), 401
+
+        request.user_id = user_id
         return f(*args, **kwargs)
     return decorated_function
 
@@ -103,19 +125,15 @@ def rate_limit(f):
     def decorated_function(*args, **kwargs):
         client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
         now = time.time()
-
-        # 期限切れのエントリを削除
         rate_limit_store[client_ip] = [
             t for t in rate_limit_store[client_ip]
             if now - t < RATE_LIMIT_WINDOW
         ]
-
         if len(rate_limit_store[client_ip]) >= RATE_LIMIT_MAX_REQUESTS:
             return jsonify({
                 'error': 'レート制限超過',
                 'message': f'{RATE_LIMIT_WINDOW}秒間に{RATE_LIMIT_MAX_REQUESTS}回までリクエストできます'
             }), 429
-
         rate_limit_store[client_ip].append(now)
         return f(*args, **kwargs)
     return decorated_function
@@ -132,211 +150,160 @@ def validate_image_size(image_data: str) -> bool:
         return False
 
 
-# --- ユーティリティ ---
+# --- クレジット管理 ---
 
-def generate_image_hash(image_data: str) -> str:
-    """画像データからSHA256ハッシュを生成"""
-    if 'base64,' in image_data:
-        image_data = image_data.split('base64,')[1]
-    image_bytes = base64.b64decode(image_data)
-    return hashlib.sha256(image_bytes).hexdigest()
-
-
-def get_cached_result(image_hash: str) -> dict:
-    """キャッシュから結果を取得"""
-    if image_hash not in cache:
-        return None
-
-    cached_item = cache[image_hash]
-    timestamp = cached_item['timestamp']
-
-    if datetime.now() - timestamp > timedelta(hours=CACHE_TTL_HOURS):
-        del cache[image_hash]
-        return None
-
-    return cached_item['result']
+def get_user_credits(user_id):
+    """ユーザーのクレジット残高を取得"""
+    if not supabase_client:
+        return 999  # Supabase未設定時は無制限
+    result = supabase_client.table('profiles').select('credits, is_premium, premium_expires_at').eq('id', user_id).single().execute()
+    if result.data:
+        profile = result.data
+        # プレミアムユーザーは無制限
+        if profile.get('is_premium'):
+            expires = profile.get('premium_expires_at')
+            if expires and datetime.fromisoformat(expires.replace('Z', '+00:00')) > datetime.now(tz=__import__('datetime').timezone.utc):
+                return -1  # -1 = 無制限
+        return profile.get('credits', 0)
+    return 0
 
 
-def set_cached_result(image_hash: str, result_id: str, result: dict):
-    """結果をキャッシュに保存"""
-    cache[image_hash] = {
-        'result': result,
-        'result_id': result_id,
-        'timestamp': datetime.now()
-    }
+def use_credit(user_id):
+    """クレジットを1消費"""
+    if not supabase_client:
+        return True
+
+    credits = get_user_credits(user_id)
+    if credits == -1:  # プレミアム
+        # 使用回数だけカウント
+        supabase_client.rpc('increment_generations', {'user_id_input': user_id}).execute()
+        return True
+    if credits <= 0:
+        return False
+
+    # クレジット減算 & 使用回数加算
+    supabase_client.table('profiles').update({
+        'credits': credits - 1,
+        'total_generations': supabase_client.table('profiles').select('total_generations').eq('id', user_id).single().execute().data.get('total_generations', 0) + 1,
+        'updated_at': datetime.utcnow().isoformat()
+    }).eq('id', user_id).execute()
+
+    # 履歴追加
+    supabase_client.table('credit_history').insert({
+        'user_id': user_id,
+        'amount': -1,
+        'reason': '髪型生成'
+    }).execute()
+
+    return True
+
+
+def add_credits(user_id, amount, reason):
+    """クレジットを追加"""
+    if not supabase_client:
+        return
+    result = supabase_client.table('profiles').select('credits').eq('id', user_id).single().execute()
+    current = result.data.get('credits', 0) if result.data else 0
+
+    supabase_client.table('profiles').update({
+        'credits': current + amount,
+        'updated_at': datetime.utcnow().isoformat()
+    }).eq('id', user_id).execute()
+
+    supabase_client.table('credit_history').insert({
+        'user_id': user_id,
+        'amount': amount,
+        'reason': reason
+    }).execute()
 
 
 # --- ルート ---
 
 @app.route('/')
 def index():
-    """トップページを表示"""
     return send_from_directory(FRONTEND_DIR, 'hairstyle.html')
 
 
 @app.route('/<path:path>')
 def serve_static(path):
-    """静的ファイルを配信"""
     return send_from_directory(FRONTEND_DIR, path)
 
 
-@app.route('/api/v1/vision/hairstyle', methods=['POST'])
-@require_api_key
-@rate_limit
-def analyze_hairstyle():
-    """
-    顔写真から似合う髪型を5つ提案
+@app.route('/api/v1/config', methods=['GET'])
+def get_config():
+    """フロントエンド用の設定を返す"""
+    return jsonify({
+        'supabaseUrl': SUPABASE_URL,
+        'supabaseAnonKey': SUPABASE_ANON_KEY,
+        'stripePublishableKey': STRIPE_PUBLISHABLE_KEY,
+        'creditPlans': CREDIT_PLANS,
+    }), 200
 
-    リクエスト:
-        face: 顔写真（Base64エンコード）
 
-    レスポンス:
-        faceAnalysis: 顔の分析結果
-        suggestions: 5つの髪型提案
-    """
-    try:
-        data = request.get_json()
-        if not data or 'face' not in data:
-            return jsonify({'error': '顔写真が必要です'}), 400
+@app.route('/api/v1/user/profile', methods=['GET'])
+@require_auth
+def get_profile():
+    """ユーザープロフィールとクレジット情報を取得"""
+    if not supabase_client:
+        return jsonify({'credits': 999, 'is_premium': False, 'total_generations': 0}), 200
 
-        face_data = data['face']
+    result = supabase_client.table('profiles').select('*').eq('id', request.user_id).single().execute()
+    if not result.data:
+        return jsonify({'error': 'プロフィールが見つかりません'}), 404
 
-        # 画像サイズ検証
-        if not validate_image_size(face_data):
-            return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
+    profile = result.data
+    return jsonify({
+        'credits': profile.get('credits', 0),
+        'is_premium': profile.get('is_premium', False),
+        'total_generations': profile.get('total_generations', 0),
+        'display_name': profile.get('display_name', ''),
+        'avatar_url': profile.get('avatar_url', ''),
+        'email': profile.get('email', ''),
+    }), 200
 
-        # ハッシュを生成
-        face_hash = generate_image_hash(face_data)
-        analysis_id = f"hairstyle_{face_hash[:32]}"
 
-        print(f"ヘアスタイル分析ID: {analysis_id}")
-
-        if not GCP_PROJECT_ID:
-            return jsonify({
-                'error': 'API設定エラー',
-                'message': 'GCP_PROJECT_IDが設定されていません。環境変数を確認してください。'
-            }), 500
-
-        print("Vertex AI (Gemini) で顔分析・髪型提案中...")
-
-        model = GenerativeModel('gemini-2.0-flash-lite')
-
-        if 'base64,' in face_data:
-            face_data = face_data.split('base64,')[1]
-
-        face_bytes = base64.b64decode(face_data)
-        face_image = Part.from_data(face_bytes, mime_type="image/jpeg")
-
-        prompt = """この顔写真を分析して、似合う髪型を5つ提案してください。
-
-以下の情報をJSON形式で返してください:
-
-{
-  "faceAnalysis": {
-    "faceShape": "顔型（卵型、丸型、四角型、逆三角型、面長、ベース型のいずれか）",
-    "features": "顔の特徴（目、鼻、輪郭、額の広さなど）",
-    "currentHair": "現在の髪型の説明",
-    "skinTone": "肌の色味"
-  },
-  "suggestions": [
-    {
-      "rank": 1,
-      "name": "髪型名（例：ショートボブ）",
-      "length": "ショート/ミディアム/ロング",
-      "description": "髪型の詳細説明",
-      "whyGood": "この顔型に似合う理由",
-      "styling": "スタイリング方法",
-      "bangs": "前髪のおすすめ（あり/なし/シースルー等）",
-      "color": "おすすめカラー",
-      "matchScore": 95
-    },
-    // ... 5つ提案
-  ],
-  "salonOrder": "美容院でのオーダー方法（最も似合う髪型について）"
-}
-
-JSON形式のみ返してください。"""
-
-        response = model.generate_content([prompt, face_image])
-        response_text = response.text
-
-        json_match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
-        if json_match:
-            response_text = json_match.group(1)
-
-        result = json.loads(response_text)
-        result['analysisId'] = analysis_id
-
-        print(f"分析完了: {len(result.get('suggestions', []))}個の髪型を提案")
-
-        return jsonify(result), 200
-
-    except json.JSONDecodeError as e:
-        print(f"JSON パースエラー: {e}")
-        print(f"レスポンス: {response_text}")
-        return jsonify({
-            'error': 'JSONパースエラー',
-            'message': 'Gemini APIからの応答を解析できませんでした。'
-        }), 500
-    except Exception as e:
-        print(f"ヘアスタイル分析エラー: {e}")
-        return jsonify({'error': f'分析エラー: {str(e)}'}), 500
-
+# --- 髪型生成API ---
 
 @app.route('/api/v1/vision/hairstyle/generate', methods=['POST'])
-@require_api_key
+@require_auth
 @rate_limit
 def generate_hairstyle():
-    """
-    顔写真とプリセット/参照画像から、髪型を変更した画像を生成
-
-    リクエスト:
-        face: 顔写真（Base64エンコード）
-        hairstyle: 髪型参照画像（Base64エンコード、オプション）
-        preset: プリセットのプロンプト（オプション）
-        presetName: プリセット名（オプション）
-        gender: メンズ/レディース（オプション）
-
-    レスポンス:
-        generatedImage: 生成された画像（Base64エンコード）
-    """
+    """顔写真とプリセットから髪型変更画像を生成"""
     try:
         data = request.get_json()
         if not data or 'face' not in data:
             return jsonify({'error': '顔写真が必要です'}), 400
 
         face_data = data['face']
-        hairstyle_data = data.get('hairstyle')
         preset = data.get('preset')
         preset_name = data.get('presetName')
         gender = data.get('gender', 'mens')
 
-        # 画像サイズ検証
         if not validate_image_size(face_data):
             return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
 
-        if hairstyle_data and not validate_image_size(hairstyle_data):
-            return jsonify({'error': f'参照画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
+        if not preset:
+            return jsonify({'error': '髪型を選択してください'}), 400
 
-        if not preset and not hairstyle_data:
-            return jsonify({'error': '髪型を選択するか参照画像をアップロードしてください'}), 400
-
-        if not GCP_PROJECT_ID:
+        # クレジットチェック
+        credits = get_user_credits(request.user_id)
+        if credits == 0:
             return jsonify({
-                'error': 'API設定エラー',
-                'message': 'GCP_PROJECT_IDが設定されていません。'
-            }), 500
+                'error': 'クレジット不足',
+                'message': 'クレジットを購入してください',
+                'credits': 0,
+                'needCredits': True
+            }), 402
 
-        print(f"Gemini 2.5 Flash Image で髪型合成中... (プリセット: {preset_name or '画像参照'})")
+        if not GEMINI_API_KEY:
+            return jsonify({'error': 'API未設定', 'message': 'GEMINI_API_KEYが設定されていません'}), 500
 
-        os.environ['GOOGLE_CLOUD_PROJECT'] = GCP_PROJECT_ID
-        os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
-        os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'True'
+        print(f"Gemini (AI Studio) で髪型合成中... (プリセット: {preset_name or '画像参照'})")
 
         from google import genai
         from google.genai.types import GenerateContentConfig, Modality
 
-        client = genai.Client()
+        client = genai.Client(api_key=GEMINI_API_KEY)
 
         if 'base64,' in face_data:
             face_data = face_data.split('base64,')[1]
@@ -346,33 +313,8 @@ def generate_hairstyle():
 
         contents = [face_image]
 
-        if hairstyle_data:
-            if 'base64,' in hairstyle_data:
-                hairstyle_data = hairstyle_data.split('base64,')[1]
-            hairstyle_bytes = base64.b64decode(hairstyle_data)
-            hairstyle_image = Image.open(io.BytesIO(hairstyle_bytes))
-            contents.append(hairstyle_image)
-
-            if preset:
-                prompt = f"""この人物の顔写真の髪型を変更してください。
-
-髪型スタイル: {preset_name} ({preset})
-2枚目の画像は雰囲気の参考です。
-
-指示:
-- 顔の特徴（目、鼻、口、肌など）は完全に維持
-- 髪型のみを指定されたスタイルに変更
-- 自然で違和感のない仕上がりに
-- 画像を1枚生成してください"""
-            else:
-                prompt = """1枚目は人物の顔写真です。2枚目は髪型の参考画像です。
-1枚目の人物の髪型を、2枚目の雰囲気を参考に変更した画像を生成してください。
-※完全なコピーではなく、似た雰囲気のスタイルにしてください。
-顔の特徴はそのまま維持し、髪型のみを変更してください。
-自然で違和感のない仕上がりにしてください。"""
-        else:
-            gender_ja = 'メンズ' if gender == 'mens' else 'レディース'
-            prompt = f"""この人物の顔写真の髪型を変更してください。
+        gender_ja = 'メンズ' if gender == 'mens' else 'レディース'
+        prompt = f"""この人物の顔写真の髪型を変更してください。
 
 髪型スタイル: {preset_name}
 詳細: {preset}
@@ -387,7 +329,7 @@ def generate_hairstyle():
         contents.append(prompt)
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
+            model="gemini-2.5-flash-preview-05-20",
             contents=contents,
             config=GenerateContentConfig(
                 response_modalities=[Modality.TEXT, Modality.IMAGE]
@@ -410,11 +352,17 @@ def generate_hairstyle():
                 'message': response_text or '画像が生成されませんでした'
             }), 500
 
+        # クレジット消費
+        if not use_credit(request.user_id):
+            return jsonify({'error': 'クレジット不足'}), 402
+
+        remaining_credits = get_user_credits(request.user_id)
         print("髪型合成完了！")
 
         return jsonify({
             'generatedImage': f'data:image/png;base64,{generated_image_base64}',
-            'message': response_text
+            'message': response_text,
+            'credits': remaining_credits
         }), 200
 
     except Exception as e:
@@ -423,24 +371,10 @@ def generate_hairstyle():
 
 
 @app.route('/api/v1/vision/hairstyle/adjust', methods=['POST'])
-@require_api_key
+@require_auth
 @rate_limit
 def adjust_hairstyle():
-    """
-    生成済み画像の髪型を調整して再生成
-
-    リクエスト:
-        face: 顔写真（Base64エンコード）
-        currentImage: 現在の生成画像（Base64エンコード）
-        preset: 元のプリセットプロンプト（オプション）
-        adjustments: 調整内容
-            - length: 長さの調整
-            - color: 色の調整
-            - style: スタイルの調整
-
-    レスポンス:
-        generatedImage: 調整後の画像（Base64エンコード）
-    """
+    """生成済み画像の髪型を調整"""
     try:
         data = request.get_json()
         if not data or 'face' not in data:
@@ -448,32 +382,30 @@ def adjust_hairstyle():
 
         face_data = data['face']
         current_image_data = data.get('currentImage')
-        preset = data.get('preset', '')
         adjustments = data.get('adjustments', {})
 
-        # 画像サイズ検証
         if not validate_image_size(face_data):
             return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
 
-        if current_image_data and not validate_image_size(current_image_data):
-            return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
-
-        if not GCP_PROJECT_ID:
+        # クレジットチェック
+        credits = get_user_credits(request.user_id)
+        if credits == 0:
             return jsonify({
-                'error': 'API設定エラー',
-                'message': 'GCP_PROJECT_IDが設定されていません。'
-            }), 500
+                'error': 'クレジット不足',
+                'message': 'クレジットを購入してください',
+                'credits': 0,
+                'needCredits': True
+            }), 402
+
+        if not GEMINI_API_KEY:
+            return jsonify({'error': 'GEMINI_API_KEYが設定されていません'}), 500
 
         print("髪型調整中...")
-
-        os.environ['GOOGLE_CLOUD_PROJECT'] = GCP_PROJECT_ID
-        os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
-        os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'True'
 
         from google import genai
         from google.genai.types import GenerateContentConfig, Modality
 
-        client = genai.Client()
+        client = genai.Client(api_key=GEMINI_API_KEY)
 
         if 'base64,' in face_data:
             face_data = face_data.split('base64,')[1]
@@ -512,7 +444,7 @@ def adjust_hairstyle():
         contents.append(prompt)
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
+            model="gemini-2.5-flash-preview-05-20",
             contents=contents,
             config=GenerateContentConfig(
                 response_modalities=[Modality.TEXT, Modality.IMAGE]
@@ -535,11 +467,17 @@ def adjust_hairstyle():
                 'message': response_text or '画像が生成されませんでした'
             }), 500
 
+        # クレジット消費
+        if not use_credit(request.user_id):
+            return jsonify({'error': 'クレジット不足'}), 402
+
+        remaining_credits = get_user_credits(request.user_id)
         print("髪型調整完了！")
 
         return jsonify({
             'generatedImage': f'data:image/png;base64,{generated_image_base64}',
-            'message': response_text
+            'message': response_text,
+            'credits': remaining_credits
         }), 200
 
     except Exception as e:
@@ -547,18 +485,109 @@ def adjust_hairstyle():
         return jsonify({'error': f'調整エラー: {str(e)}'}), 500
 
 
+# --- Stripe課金API ---
+
+@app.route('/api/v1/stripe/checkout', methods=['POST'])
+@require_auth
+def create_checkout():
+    """Stripe Checkoutセッション作成"""
+    try:
+        data = request.get_json()
+        plan_id = data.get('plan')
+
+        if plan_id not in CREDIT_PLANS:
+            return jsonify({'error': '無効なプランです'}), 400
+
+        plan = CREDIT_PLANS[plan_id]
+        app_url = request.host_url.rstrip('/')
+
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'jpy',
+                    'product_data': {
+                        'name': f'Hair Style Simulator - {plan["name"]}',
+                        'description': f'{plan["credits"]}クレジット',
+                    },
+                    'unit_amount': plan['price'],
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=f'{app_url}/?payment=success&credits={plan["credits"]}',
+            cancel_url=f'{app_url}/?payment=cancel',
+            metadata={
+                'user_id': request.user_id,
+                'plan_id': plan_id,
+                'credits': str(plan['credits']),
+            },
+        )
+
+        return jsonify({'url': session.url}), 200
+
+    except Exception as e:
+        print(f"Checkoutエラー: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/v1/stripe/webhook', methods=['POST'])
+def stripe_webhook():
+    """Stripe Webhookでクレジット付与"""
+    payload = request.get_data(as_text=True)
+    sig_header = request.headers.get('Stripe-Signature')
+
+    try:
+        if STRIPE_WEBHOOK_SECRET:
+            event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+        else:
+            event = json.loads(payload)
+
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            metadata = session.get('metadata', {})
+            user_id = metadata.get('user_id')
+            plan_id = metadata.get('plan_id')
+            credits = int(metadata.get('credits', 0))
+
+            if user_id and credits > 0:
+                add_credits(user_id, credits, f'購入: {plan_id}')
+
+                # 購入履歴記録
+                if supabase_client:
+                    supabase_client.table('purchases').insert({
+                        'user_id': user_id,
+                        'stripe_session_id': session.get('id'),
+                        'stripe_payment_intent_id': session.get('payment_intent'),
+                        'plan': plan_id,
+                        'amount': session.get('amount_total', 0),
+                        'credits_added': credits,
+                        'status': 'completed',
+                    }).execute()
+
+                print(f"クレジット付与完了: user={user_id}, credits={credits}")
+
+        return jsonify({'received': True}), 200
+
+    except Exception as e:
+        print(f"Webhookエラー: {e}")
+        return jsonify({'error': str(e)}), 400
+
+
+# --- ヘルスチェック ---
+
 @app.route('/health', methods=['GET'])
 def health_check():
-    """ヘルスチェックエンドポイント"""
     return jsonify({
         'status': 'ok',
-        'api_configured': GCP_PROJECT_ID is not None,
-        'project_id': GCP_PROJECT_ID,
-        'location': GCP_LOCATION
+        'gemini_configured': bool(GEMINI_API_KEY),
+        'supabase_configured': bool(supabase_client),
+        'stripe_configured': bool(STRIPE_SECRET_KEY),
     }), 200
 
 
-# プリセット定義
+# --- プリセット定義 ---
+
 HAIRSTYLE_PRESETS = {
     'mens': [
         {'id': 'none', 'name': 'なし', 'prompt': None},
@@ -583,145 +612,11 @@ HAIRSTYLE_PRESETS = {
 }
 
 
-@app.route('/api/v1/admin/generate-preset/<gender>/<preset_id>', methods=['POST'])
-@require_api_key
-def generate_preset_image(gender, preset_id):
-    """
-    プリセットサムネイル画像を生成（管理用）
-
-    パス:
-        gender: mens または ladies
-        preset_id: プリセットID（short, bob など）
-    """
-    try:
-        if gender not in HAIRSTYLE_PRESETS:
-            return jsonify({'error': '無効なジェンダー'}), 400
-
-        preset = next((p for p in HAIRSTYLE_PRESETS[gender] if p['id'] == preset_id), None)
-        if not preset:
-            return jsonify({'error': '無効なプリセットID'}), 400
-
-        if preset['prompt'] is None:
-            # 「なし」の場合はプレースホルダーを返す
-            img = Image.new('RGB', (144, 144), color='#F5F5F5')
-            from PIL import ImageDraw
-            draw = ImageDraw.Draw(img)
-            draw.ellipse([22, 22, 122, 122], outline='#CCCCCC', width=2)
-            draw.line([40, 40, 104, 104], fill='#CCCCCC', width=2)
-
-            buffer = io.BytesIO()
-            img.save(buffer, format='PNG')
-            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-            return jsonify({
-                'image': f'data:image/png;base64,{image_base64}',
-                'preset': preset
-            }), 200
-
-        if not GCP_PROJECT_ID:
-            return jsonify({'error': 'GCP_PROJECT_IDが設定されていません'}), 500
-
-        os.environ['GOOGLE_CLOUD_PROJECT'] = GCP_PROJECT_ID
-        os.environ['GOOGLE_CLOUD_LOCATION'] = 'global'
-        os.environ['GOOGLE_GENAI_USE_VERTEXAI'] = 'True'
-
-        from google import genai
-        from google.genai.types import GenerateContentConfig, Modality
-
-        gender_ja = 'メンズ' if gender == 'mens' else 'レディース'
-        gender_en = 'man' if gender == 'mens' else 'woman'
-
-        prompt = f"""Generate a hairstyle sample image for a mobile app preset button.
-
-Requirements:
-- Show ONLY the hairstyle on a simple mannequin head silhouette
-- Pure white background (#FFFFFF)
-- Front-facing view, slightly angled
-- {gender_en}'s hairstyle
-- Hairstyle: {preset['name']} - {preset['prompt']}
-- Natural hair color (dark brown or black)
-- Clean, professional look suitable for a beauty app
-- The image should be square, suitable for a small thumbnail (72x72px display)
-- Focus on the hair shape and style, not facial features
-- Minimal, modern aesthetic
-
-Style reference: Beauty app preset thumbnails like BeautyPlus or SNOW app"""
-
-        client = genai.Client()
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
-            contents=[prompt],
-            config=GenerateContentConfig(
-                response_modalities=[Modality.TEXT, Modality.IMAGE]
-            ),
-        )
-
-        image_base64 = None
-        for part in response.candidates[0].content.parts:
-            if hasattr(part, 'inline_data') and part.inline_data:
-                image_base64 = base64.b64encode(part.inline_data.data).decode('utf-8')
-                break
-
-        if not image_base64:
-            return jsonify({'error': '画像生成に失敗しました'}), 500
-
-        # 画像を保存
-        output_dir = os.path.join(FRONTEND_DIR, 'images', 'presets', gender)
-        os.makedirs(output_dir, exist_ok=True)
-
-        output_path = os.path.join(output_dir, f'{preset_id}.png')
-        with open(output_path, 'wb') as f:
-            f.write(base64.b64decode(image_base64))
-
-        print(f"プリセット画像生成完了: {output_path}")
-
-        return jsonify({
-            'image': f'data:image/png;base64,{image_base64}',
-            'path': f'/images/presets/{gender}/{preset_id}.png',
-            'preset': preset
-        }), 200
-
-    except Exception as e:
-        print(f"プリセット画像生成エラー: {e}")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/v1/admin/generate-all-presets', methods=['POST'])
-@require_api_key
-def generate_all_preset_images():
-    """
-    全プリセットサムネイル画像を一括生成（管理用）
-    """
-    results = {'success': [], 'failed': []}
-
-    for gender in ['mens', 'ladies']:
-        for preset in HAIRSTYLE_PRESETS[gender]:
-            try:
-                # 内部的にgenerate_preset_imageを呼び出す
-                with app.test_request_context():
-                    response = generate_preset_image(gender, preset['id'])
-                    if response[1] == 200:
-                        results['success'].append(f"{gender}/{preset['id']}")
-                    else:
-                        results['failed'].append(f"{gender}/{preset['id']}")
-            except Exception as e:
-                results['failed'].append(f"{gender}/{preset['id']}: {str(e)}")
-
-    return jsonify(results), 200
-
-
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     print(f"サーバーを起動しています: http://localhost:{port}")
-    if GCP_PROJECT_ID:
-        print(f"Vertex AI設定済み: project={GCP_PROJECT_ID}, location={GCP_LOCATION}")
-    else:
-        print("警告: GCP_PROJECT_IDが未設定です")
-    if API_KEY:
-        print("API認証: 有効")
-    else:
-        print("API認証: 無効（開発モード）")
-
+    print(f"Gemini API: {'設定済み' if GEMINI_API_KEY else '未設定'}")
+    print(f"Supabase: {'設定済み' if supabase_client else '未設定'}")
+    print(f"Stripe: {'設定済み' if STRIPE_SECRET_KEY else '未設定'}")
     app.run(host='0.0.0.0', port=port, debug=debug)
