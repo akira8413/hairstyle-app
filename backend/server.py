@@ -84,20 +84,31 @@ else:
 
 def get_user_from_token(token):
     """JWTトークンからユーザー情報を取得"""
-    if not SUPABASE_JWT_SECRET:
-        return None
-    try:
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=['HS256'],
-            audience='authenticated'
-        )
-        return payload.get('sub')  # user_id
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
+    # 方式1: Supabase APIで検証（新形式ECC対応）
+    if supabase_client:
+        try:
+            result = supabase_client.auth.get_user(token)
+            if result and result.user:
+                return result.user.id
+        except Exception:
+            pass
+
+    # 方式2: HS256シークレットで検証（Legacy）
+    if SUPABASE_JWT_SECRET:
+        try:
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=['HS256'],
+                audience='authenticated'
+            )
+            return payload.get('sub')
+        except jwt.ExpiredSignatureError:
+            return None
+        except jwt.InvalidTokenError:
+            pass
+
+    return None
 
 
 def require_auth(f):
