@@ -193,6 +193,13 @@ def classify_profile_error(error):
     message = str(error)
     lowered = message.lower()
 
+    if 'invalid api key' in lowered:
+        return {
+            'code': 'profiles_invalid_api_key',
+            'hint': 'SUPABASE_SERVICE_KEY を現在の project の service_role key に更新してください',
+            'message': message,
+        }
+
     if 'profiles' in lowered and ('does not exist' in lowered or 'relation' in lowered):
         return {
             'code': 'profiles_table_missing',
