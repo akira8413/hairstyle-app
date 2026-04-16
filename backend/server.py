@@ -188,21 +188,60 @@ def validate_image_size(image_data: str) -> bool:
 
 # --- クレジット管理 ---
 
-def get_profile_record(user_id, create_if_missing=False):
+def classify_profile_error(error):
+    """profiles 周りの代表的な障害を分類"""
+    message = str(error)
+    lowered = message.lower()
+
+    if 'profiles' in lowered and ('does not exist' in lowered or 'relation' in lowered):
+        return {
+            'code': 'profiles_table_missing',
+            'hint': 'Supabase SQL Editor で supabase_schema.sql を実行してください',
+            'message': message,
+        }
+
+    if any(keyword in lowered for keyword in ['row-level security', 'permission denied', 'not authorized', 'insufficient_privilege']):
+        return {
+            'code': 'profiles_access_denied',
+            'hint': 'SUPABASE_SERVICE_KEY に service role key を設定してください',
+            'message': message,
+        }
+
+    if 'foreign key' in lowered or 'violates foreign key constraint' in lowered:
+        return {
+            'code': 'profiles_insert_foreign_key_failed',
+            'hint': 'auth.users に該当ユーザーが存在するか確認してください',
+            'message': message,
+        }
+
+    return {
+        'code': 'profiles_unknown_error',
+        'hint': 'アプリログのプロフィール取得エラーを確認してください',
+        'message': message,
+    }
+
+
+def get_profile_record(user_id, create_if_missing=False, return_meta=False):
     """profiles から1件取得。必要なら最小レコードを自動作成"""
+    errors = []
+
     if not supabase_client:
-        return None
+        return (None, errors) if return_meta else None
 
     try:
         result = supabase_client.table('profiles').select('*').eq('id', user_id).limit(1).execute()
         rows = result.data or []
         if rows:
-            return rows[0]
+            return (rows[0], errors) if return_meta else rows[0]
     except Exception as e:
         print(f"プロフィール取得エラー: user={user_id}, error={e}")
+        errors.append({
+            'stage': 'select',
+            **classify_profile_error(e),
+        })
 
     if not create_if_missing:
-        return None
+        return (None, errors) if return_meta else None
 
     try:
         created = supabase_client.table('profiles').insert({
@@ -212,11 +251,15 @@ def get_profile_record(user_id, create_if_missing=False):
         rows = created.data or []
         if rows:
             print(f"プロフィール自動作成: user={user_id}")
-            return rows[0]
+            return (rows[0], errors) if return_meta else rows[0]
     except Exception as e:
         print(f"プロフィール自動作成エラー: user={user_id}, error={e}")
+        errors.append({
+            'stage': 'insert',
+            **classify_profile_error(e),
+        })
 
-    return None
+    return (None, errors) if return_meta else None
 
 
 def get_user_credits(user_id):
@@ -322,9 +365,20 @@ def get_profile():
     if not supabase_client:
         return jsonify({'credits': 999, 'is_premium': False, 'total_generations': 0}), 200
 
-    profile = get_profile_record(request.user_id, create_if_missing=True)
+    profile, profile_errors = get_profile_record(request.user_id, create_if_missing=True, return_meta=True)
     if not profile:
-        return jsonify({'error': 'プロフィール取得に失敗しました'}), 500
+        primary_error = profile_errors[-1] if profile_errors else {
+            'code': 'profiles_unknown_error',
+            'hint': 'アプリログを確認してください',
+            'message': '',
+            'stage': 'unknown',
+        }
+        return jsonify({
+            'error': 'プロフィール取得に失敗しました',
+            'code': primary_error['code'],
+            'hint': primary_error['hint'],
+            'details': profile_errors,
+        }), 503
 
     return jsonify({
         'credits': profile.get('credits', 0),
@@ -658,6 +712,10 @@ def health_check():
         'supabase_configured': bool(supabase_auth_client or supabase_client or SUPABASE_JWT_SECRET),
         'supabase_auth_configured': is_auth_validation_configured(),
         'supabase_db_configured': bool(supabase_client),
+        'supabase_service_key_configured': bool(SUPABASE_SERVICE_KEY),
+        'supabase_keys_distinct': bool(
+            SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY and SUPABASE_ANON_KEY != SUPABASE_SERVICE_KEY
+        ),
         'stripe_configured': bool(STRIPE_SECRET_KEY),
     }), 200
 
