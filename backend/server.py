@@ -624,6 +624,41 @@ def health_check():
     }), 200
 
 
+@app.route('/debug/auth', methods=['POST'])
+def debug_auth():
+    """一時デバッグ用: トークン検証の詳細エラーを返す"""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'no_bearer'}), 400
+    token = auth_header.split('Bearer ')[1]
+
+    results = {}
+
+    for name, client in [('auth_client', supabase_auth_client), ('service_client', supabase_client)]:
+        if not client:
+            results[name] = 'not_configured'
+            continue
+        try:
+            result = client.auth.get_user(token)
+            if result and result.user:
+                results[name] = f'ok: {result.user.id}'
+            else:
+                results[name] = 'no_user'
+        except Exception as e:
+            results[name] = f'error: {str(e)}'
+
+    if SUPABASE_JWT_SECRET:
+        try:
+            payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=['HS256'], audience='authenticated')
+            results['jwt'] = f'ok: {payload.get("sub")}'
+        except Exception as e:
+            results['jwt'] = f'error: {str(e)}'
+    else:
+        results['jwt'] = 'no_secret'
+
+    return jsonify(results), 200
+
+
 # --- プリセット定義 ---
 
 HAIRSTYLE_PRESETS = {
