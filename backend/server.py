@@ -188,13 +188,44 @@ def validate_image_size(image_data: str) -> bool:
 
 # --- クレジット管理 ---
 
+def get_profile_record(user_id, create_if_missing=False):
+    """profiles から1件取得。必要なら最小レコードを自動作成"""
+    if not supabase_client:
+        return None
+
+    try:
+        result = supabase_client.table('profiles').select('*').eq('id', user_id).limit(1).execute()
+        rows = result.data or []
+        if rows:
+            return rows[0]
+    except Exception as e:
+        print(f"プロフィール取得エラー: user={user_id}, error={e}")
+
+    if not create_if_missing:
+        return None
+
+    try:
+        created = supabase_client.table('profiles').insert({
+            'id': user_id,
+            'updated_at': datetime.utcnow().isoformat()
+        }).execute()
+        rows = created.data or []
+        if rows:
+            print(f"プロフィール自動作成: user={user_id}")
+            return rows[0]
+    except Exception as e:
+        print(f"プロフィール自動作成エラー: user={user_id}, error={e}")
+
+    return None
+
+
 def get_user_credits(user_id):
     """ユーザーのクレジット残高を取得"""
     if not supabase_client:
         return 999  # Supabase未設定時は無制限
-    result = supabase_client.table('profiles').select('credits, is_premium, premium_expires_at').eq('id', user_id).single().execute()
-    if result.data:
-        profile = result.data
+
+    profile = get_profile_record(user_id, create_if_missing=True)
+    if profile:
         # プレミアムユーザーは無制限
         if profile.get('is_premium'):
             expires = profile.get('premium_expires_at')
@@ -209,18 +240,25 @@ def use_credit(user_id):
     if not supabase_client:
         return True
 
-    credits = get_user_credits(user_id)
-    if credits == -1:  # プレミアム
-        # 使用回数だけカウント
-        supabase_client.rpc('increment_generations', {'user_id_input': user_id}).execute()
-        return True
+    profile = get_profile_record(user_id, create_if_missing=True)
+    if not profile:
+        return False
+
+    if profile.get('is_premium'):
+        expires = profile.get('premium_expires_at')
+        if expires and datetime.fromisoformat(expires.replace('Z', '+00:00')) > datetime.now(tz=__import__('datetime').timezone.utc):
+            # 使用回数だけカウント
+            supabase_client.rpc('increment_generations', {'user_id_input': user_id}).execute()
+            return True
+
+    credits = profile.get('credits', 0)
     if credits <= 0:
         return False
 
     # クレジット減算 & 使用回数加算
     supabase_client.table('profiles').update({
         'credits': credits - 1,
-        'total_generations': supabase_client.table('profiles').select('total_generations').eq('id', user_id).single().execute().data.get('total_generations', 0) + 1,
+        'total_generations': profile.get('total_generations', 0) + 1,
         'updated_at': datetime.utcnow().isoformat()
     }).eq('id', user_id).execute()
 
@@ -238,8 +276,9 @@ def add_credits(user_id, amount, reason):
     """クレジットを追加"""
     if not supabase_client:
         return
-    result = supabase_client.table('profiles').select('credits').eq('id', user_id).single().execute()
-    current = result.data.get('credits', 0) if result.data else 0
+
+    profile = get_profile_record(user_id, create_if_missing=True)
+    current = profile.get('credits', 0) if profile else 0
 
     supabase_client.table('profiles').update({
         'credits': current + amount,
@@ -283,11 +322,10 @@ def get_profile():
     if not supabase_client:
         return jsonify({'credits': 999, 'is_premium': False, 'total_generations': 0}), 200
 
-    result = supabase_client.table('profiles').select('*').eq('id', request.user_id).single().execute()
-    if not result.data:
-        return jsonify({'error': 'プロフィールが見つかりません'}), 404
+    profile = get_profile_record(request.user_id, create_if_missing=True)
+    if not profile:
+        return jsonify({'error': 'プロフィール取得に失敗しました'}), 500
 
-    profile = result.data
     return jsonify({
         'credits': profile.get('credits', 0),
         'is_premium': profile.get('is_premium', False),
