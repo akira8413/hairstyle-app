@@ -25,6 +25,15 @@ In Coolify, add these environment variables:
 | `GCP_PROJECT_ID` | Your Google Cloud Project ID | Yes |
 | `GCP_LOCATION` | Vertex AI region (default: us-central1) | No |
 | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | Full service account JSON (single line) | Yes |
+| `GEMINI_API_KEY` | Google AI Studio API key | Yes |
+| `SUPABASE_URL` | Supabase project URL | Yes |
+| `SUPABASE_ANON_KEY` | Supabase anon key | Yes |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key | Recommended |
+| `SUPABASE_JWT_SECRET` | Legacy HS256 JWT secret | Optional |
+| `STRIPE_SECRET_KEY` | Stripe secret key | Optional |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key | Optional |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook secret | Optional |
+| `ALLOWED_ORIGINS` | CORS allowlist, comma-separated | No |
 
 **Important**: For `GOOGLE_APPLICATION_CREDENTIALS_JSON`, paste the entire JSON as a single line:
 ```
@@ -52,9 +61,11 @@ Returns:
 ```json
 {
   "status": "ok",
-  "api_configured": true,
-  "project_id": "your-project-id",
-  "location": "us-central1"
+  "gemini_configured": true,
+  "supabase_configured": true,
+  "supabase_auth_configured": true,
+  "supabase_db_configured": true,
+  "stripe_configured": false
 }
 ```
 
@@ -73,6 +84,11 @@ static const String baseUrl = 'https://hairstyle.yourdomain.com';
 - Check `GCP_PROJECT_ID` is set correctly
 - Verify `GOOGLE_APPLICATION_CREDENTIALS_JSON` is valid JSON
 - Ensure Vertex AI API is enabled in GCP
+
+### `/api/v1/user/profile` returns 401 or 503
+- Check `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set so the frontend can log in
+- Check `SUPABASE_SERVICE_KEY` is set so the backend can read profile/credit data
+- Check `/health` and confirm `supabase_auth_configured` and `supabase_db_configured` are both `true`
 
 ### Image generation fails
 - Verify service account has `Vertex AI User` role

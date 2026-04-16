@@ -60,14 +60,29 @@ CREDIT_PLANS = {
     'premium': {'credits': 200, 'price': 2980, 'name': 'プレミアム (200回)'},
 }
 
-# Supabaseクライアント（サービスキー使用）
+# Supabaseクライアント
+supabase_auth_client = None
 supabase_client = None
-if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+
+if SUPABASE_URL and (SUPABASE_ANON_KEY or SUPABASE_SERVICE_KEY):
     from supabase import create_client
-    supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    print(f"Supabase接続完了: {SUPABASE_URL}")
-else:
-    print("警告: Supabase未設定（SUPABASE_URL, SUPABASE_SERVICE_KEY）")
+
+    if SUPABASE_ANON_KEY:
+        supabase_auth_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+        print(f"Supabase Auth接続完了: {SUPABASE_URL}")
+
+    if SUPABASE_SERVICE_KEY:
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+        print(f"Supabase管理接続完了: {SUPABASE_URL}")
+
+if SUPABASE_JWT_SECRET and not (supabase_auth_client or supabase_client):
+    print("Supabase JWT Secretで認証検証を有効化")
+
+if not (supabase_auth_client or supabase_client or SUPABASE_JWT_SECRET):
+    print("警告: 認証検証手段が未設定（SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET）")
+
+if not supabase_client:
+    print("警告: Supabase管理クライアント未設定（SUPABASE_URL, SUPABASE_SERVICE_KEY）")
 
 if GEMINI_API_KEY:
     print("Google AI Studio API設定完了")
@@ -82,12 +97,19 @@ else:
 
 # --- 認証ミドルウェア ---
 
+def is_auth_validation_configured():
+    """JWT検証手段が設定されているか"""
+    return bool(supabase_auth_client or supabase_client or SUPABASE_JWT_SECRET)
+
+
 def get_user_from_token(token):
     """JWTトークンからユーザー情報を取得"""
     # 方式1: Supabase APIで検証（新形式ECC対応）
-    if supabase_client:
+    for client in (supabase_auth_client, supabase_client):
+        if not client:
+            continue
         try:
-            result = supabase_client.auth.get_user(token)
+            result = client.auth.get_user(token)
             if result and result.user:
                 return result.user.id
         except Exception:
@@ -118,6 +140,9 @@ def require_auth(f):
         auth_header = request.headers.get('Authorization', '')
         if not auth_header.startswith('Bearer '):
             return jsonify({'error': 'ログインが必要です'}), 401
+
+        if not is_auth_validation_configured():
+            return jsonify({'error': '認証サーバー設定が不足しています'}), 503
 
         token = auth_header.split('Bearer ')[1]
         user_id = get_user_from_token(token)
@@ -592,7 +617,9 @@ def health_check():
     return jsonify({
         'status': 'ok',
         'gemini_configured': bool(GEMINI_API_KEY),
-        'supabase_configured': bool(supabase_client),
+        'supabase_configured': bool(supabase_auth_client or supabase_client or SUPABASE_JWT_SECRET),
+        'supabase_auth_configured': is_auth_validation_configured(),
+        'supabase_db_configured': bool(supabase_client),
         'stripe_configured': bool(STRIPE_SECRET_KEY),
     }), 200
 
@@ -628,6 +655,7 @@ if __name__ == '__main__':
     debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
     print(f"サーバーを起動しています: http://localhost:{port}")
     print(f"Gemini API: {'設定済み' if GEMINI_API_KEY else '未設定'}")
-    print(f"Supabase: {'設定済み' if supabase_client else '未設定'}")
+    print(f"Supabase Auth: {'設定済み' if is_auth_validation_configured() else '未設定'}")
+    print(f"Supabase DB: {'設定済み' if supabase_client else '未設定'}")
     print(f"Stripe: {'設定済み' if STRIPE_SECRET_KEY else '未設定'}")
     app.run(host='0.0.0.0', port=port, debug=debug)
