@@ -795,27 +795,8 @@
 </head>
 <body>
     <div class="app">
-        <!-- Login Section -->
-        <div id="loginSection" class="login-section">
-            <div class="login-logo">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
-                </svg>
-            </div>
-            <h1 class="login-title">Hair Style Simulator</h1>
-            <p class="login-subtitle">AIがあなたに似合う髪型を提案<br>まずはGoogleアカウントでログイン</p>
-            <button class="login-btn" onclick="loginWithGoogle()">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-                Googleでログイン
-            </button>
-            <div class="login-free-credits">
-                <div class="login-free-credits-title">無料で3回お試し</div>
-                <div class="login-free-credits-desc">登録するだけで3クレジットプレゼント</div>
-            </div>
-        </div>
-
-        <!-- App Content (ログイン後に表示) -->
-        <div id="appContent" class="hidden">
+        <!-- App Content -->
+        <div id="appContent">
         <!-- Input Section -->
         <div id="inputSection">
             <header class="app-header">
@@ -959,6 +940,20 @@
         </div>
 
         </div><!-- /appContent -->
+
+        <!-- Guest Login CTA Modal -->
+        <div id="guestLoginModal" class="modal-overlay hidden">
+            <div class="modal-content" style="text-align:center;">
+                <div style="font-size:48px;margin-bottom:16px;">✨</div>
+                <div class="modal-title">気に入りましたか？</div>
+                <div class="modal-subtitle">Googleログインで<strong style="color:#a855f7;">3回無料</strong>でお試しできます</div>
+                <button class="login-btn" style="width:100%;justify-content:center;margin-bottom:12px;" onclick="loginWithGoogle()">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                    Googleでログイン（無料）
+                </button>
+                <button class="modal-close" onclick="document.getElementById('guestLoginModal').classList.add('hidden')">後で</button>
+            </div>
+        </div>
 
         <!-- Purchase Modal -->
         <div id="purchaseModal" class="modal-overlay hidden" onclick="if(event.target===this)hidePurchaseModal()">

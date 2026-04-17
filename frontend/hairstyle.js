@@ -326,28 +326,83 @@ function updateGenerateButton() {
     analyzeBtn.disabled = !photoData;
 }
 
+function buildPayload() {
+    let fullPrompt = selectedPreset.prompt;
+    if (selectedColor && selectedColor.prompt) {
+        fullPrompt = `${selectedPreset.prompt}, ${selectedColor.prompt}`;
+    }
+    return {
+        face: photoData,
+        preset: fullPrompt,
+        presetName: `${selectedPreset.name}${selectedColor ? ' (' + selectedColor.name + ')' : ''}`,
+        gender: currentGender
+    };
+}
+
 async function generate() {
     if (!photoData || !selectedPreset) return;
 
+    // ゲストユーザーの場合
+    if (!currentUser) {
+        if (localStorage.getItem('hairapp_guest_used')) {
+            // 試用済み → ログイン誘導
+            document.getElementById('guestLoginModal').classList.remove('hidden');
+            return;
+        }
+        await generateAsGuest();
+        return;
+    }
+
+    // ログインユーザー
+    await generateAsUser();
+}
+
+async function generateAsGuest() {
     inputSection.classList.add('hidden');
     loadingSection.classList.remove('hidden');
 
     try {
-        // プリセットのプロンプトに髪色を追加
-        let fullPrompt = selectedPreset.prompt;
-        if (selectedColor && selectedColor.prompt) {
-            fullPrompt = `${selectedPreset.prompt}, ${selectedColor.prompt}`;
+        const response = await fetch(`${API_BASE_URL}/api/v1/vision/hairstyle/generate/guest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildPayload())
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            throw new Error(data.error || 'Generation failed');
         }
 
+        localStorage.setItem('hairapp_guest_used', '1');
+        generatedData = data.generatedImage;
+        resultImage.src = generatedData;
+
+        loadingSection.classList.add('hidden');
+        resultSection.classList.remove('hidden');
+
+        // 結果表示後にログイン誘導
+        setTimeout(() => {
+            document.getElementById('guestLoginModal').classList.remove('hidden');
+        }, 2000);
+
+    } catch (error) {
+        console.error('Error:', error);
+        loadingSection.classList.add('hidden');
+        inputSection.classList.remove('hidden');
+        alert(`エラー: ${error.message}`);
+    }
+}
+
+async function generateAsUser() {
+    inputSection.classList.add('hidden');
+    loadingSection.classList.remove('hidden');
+
+    try {
         const response = await authFetch(`${API_BASE_URL}/api/v1/vision/hairstyle/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                face: photoData,
-                preset: fullPrompt,
-                presetName: `${selectedPreset.name}${selectedColor ? ' (' + selectedColor.name + ')' : ''}`,
-                gender: currentGender
-            })
+            body: JSON.stringify(buildPayload())
         });
 
         const data = await response.json();
@@ -363,7 +418,6 @@ async function generate() {
             throw new Error(data.error || 'Generation failed');
         }
 
-        // クレジット残高を更新
         if (data.credits !== undefined) {
             updateCredits(data.credits);
         }

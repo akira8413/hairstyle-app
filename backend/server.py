@@ -399,6 +399,78 @@ def get_profile():
 
 # --- 髪型生成API ---
 
+@app.route('/api/v1/vision/hairstyle/generate/guest', methods=['POST'])
+@rate_limit
+def generate_hairstyle_guest():
+    """ゲスト用（認証不要）髪型生成 - 1回無料体験用"""
+    try:
+        data = request.get_json()
+        if not data or 'face' not in data:
+            return jsonify({'error': '顔写真が必要です'}), 400
+
+        face_data = data['face']
+        preset = data.get('preset')
+        preset_name = data.get('presetName')
+        gender = data.get('gender', 'mens')
+
+        if not validate_image_size(face_data):
+            return jsonify({'error': f'画像サイズは{MAX_IMAGE_SIZE_BYTES // (1024*1024)}MB以下にしてください'}), 413
+
+        if not preset:
+            return jsonify({'error': '髪型を選択してください'}), 400
+
+        if not GEMINI_API_KEY:
+            return jsonify({'error': 'API未設定'}), 500
+
+        from google import genai
+        from google.genai.types import GenerateContentConfig, Modality
+
+        client = genai.Client(api_key=GEMINI_API_KEY)
+
+        if 'base64,' in face_data:
+            face_data = face_data.split('base64,')[1]
+
+        face_bytes = base64.b64decode(face_data)
+        face_image = Image.open(io.BytesIO(face_bytes))
+
+        gender_ja = 'メンズ' if gender == 'mens' else 'レディース'
+        prompt = f"""この人物の顔写真の髪型を変更してください。
+
+髪型スタイル: {preset_name}
+詳細: {preset}
+ジェンダー: {gender_ja}
+
+指示:
+- 顔の特徴（目、鼻、口、肌など）は完全に維持
+- 髪型のみを指定されたスタイルに変更
+- 自然で違和感のない仕上がりに
+- 画像を1枚生成してください"""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            contents=[face_image, prompt],
+            config=GenerateContentConfig(
+                response_modalities=[Modality.TEXT, Modality.IMAGE]
+            ),
+        )
+
+        generated_image_base64 = None
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, 'inline_data') and part.inline_data:
+                generated_image_base64 = base64.b64encode(part.inline_data.data).decode('utf-8')
+
+        if not generated_image_base64:
+            return jsonify({'error': '画像生成に失敗しました'}), 500
+
+        return jsonify({
+            'generatedImage': f'data:image/png;base64,{generated_image_base64}',
+        }), 200
+
+    except Exception as e:
+        print(f"ゲスト髪型生成エラー: {e}")
+        return jsonify({'error': f'生成エラー: {str(e)}'}), 500
+
+
 @app.route('/api/v1/vision/hairstyle/generate', methods=['POST'])
 @require_auth
 @rate_limit

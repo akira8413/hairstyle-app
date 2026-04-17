@@ -134,30 +134,22 @@ async function purchaseCredits(planId) {
 
 // --- UI更新 ---
 function updateUI() {
-    const loginSection = document.getElementById('loginSection');
-    const appContent = document.getElementById('appContent');
     const creditBadge = document.getElementById('creditBadge');
     const userAvatar = document.getElementById('userAvatar');
     const userName = document.getElementById('userName');
+    const creditBadgeWrapper = creditBadge ? creditBadge.closest('.credit-badge') : null;
 
     if (currentUser && userProfile) {
-        // ログイン済み
-        if (loginSection) loginSection.classList.add('hidden');
-        if (appContent) appContent.classList.remove('hidden');
-
-        // クレジット表示
+        // ログイン済み: クレジット表示
         if (creditBadge) {
-            const credits = userProfile.credits;
             if (userProfile.is_premium) {
                 creditBadge.textContent = '∞';
-                creditBadge.title = 'プレミアム会員';
             } else {
-                creditBadge.textContent = credits;
-                creditBadge.title = `残りクレジット: ${credits}`;
+                creditBadge.textContent = userProfile.credits;
             }
         }
+        if (creditBadgeWrapper) creditBadgeWrapper.style.display = '';
 
-        // ユーザー情報
         if (userAvatar && userProfile.avatar_url) {
             userAvatar.src = userProfile.avatar_url;
             userAvatar.classList.remove('hidden');
@@ -166,9 +158,10 @@ function updateUI() {
             userName.textContent = userProfile.display_name || userProfile.email || '';
         }
     } else {
-        // 未ログイン
-        if (loginSection) loginSection.classList.remove('hidden');
-        if (appContent) appContent.classList.add('hidden');
+        // 未ログイン（ゲスト）: クレジットバッジ非表示
+        if (creditBadgeWrapper) creditBadgeWrapper.style.display = 'none';
+        if (userAvatar) userAvatar.classList.add('hidden');
+        if (userName) userName.textContent = '';
     }
 }
 
